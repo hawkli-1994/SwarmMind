@@ -162,22 +162,32 @@ Jira 把"工作状态"变成数据库里的 record：`ticket.status = "In Progre
 
 ## 快速开始
 
+**环境要求：** Python 3.11+，Node.js 18+，npm
+
 ```bash
 # Clone 仓库
 git clone https://github.com/rongxinzy/SwarmMind.git
 cd SwarmMind
 
-# 后端：安装依赖
-pip install -r requirements.txt
+# 配置密钥
+cp .env.example .env
+# 编辑 .env 填入你的 ANTHROPIC_API_KEY 和 ANTHROPIC_BASE_URL
 
-# 启动 supervisor API（首次运行自动初始化数据库）
-python -m swarmmind.api.supervisor
+# ========== 后端（使用 uv 管理 Python 环境）==========
+uv sync                    # 安装 Python 依赖（推荐用 uv，比 pip 更准更快）
+
+# 首次运行自动初始化数据库
+uv run python -m swarmmind.api.supervisor
 # API 运行在 http://localhost:8000
 
-# 前端：新终端安装 UI 依赖
-cd ui && npm install && npm run dev
+# ========== 前端（新终端）==========
+cd ui
+npm install                # 安装 Node 依赖
+npm run dev                # 开发模式，热重载
 # UI 运行在 http://localhost:3000
 ```
+
+**为什么用 uv？** uv 是极速 Python 包管理器（比 pip 快 10-100 倍），同时管理项目依赖和虚拟环境，确保依赖一致性。
 
 **使用流程：** 打开 http://localhost:3000 → 提交目标 → 在 Pending 标签页审批/拒绝提案。
 

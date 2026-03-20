@@ -5,8 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env file if present
-load_dotenv()
+# Load .env file if present (override system env vars so .env takes precedence)
+load_dotenv(override=True)
 
 # Database
 DB_PATH = os.environ.get("SWARMMIND_DB_PATH", "swarmmind.db")
