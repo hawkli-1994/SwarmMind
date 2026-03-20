@@ -20,6 +20,9 @@ venv/
 # Database
 *.db
 
+# Environment (never commit real keys)
+.env
+
 # Logs
 *.log
 

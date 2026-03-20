@@ -165,11 +165,14 @@ The open source community will contribute: new agent types, better routing algor
 git clone https://github.com/rongxinzy/SwarmMind.git
 cd SwarmMind
 
-# Backend: install dependencies
-pip install -r requirements.txt
+# Backend: install dependencies with uv (fast, correct)
+uv sync
+
+# Set your LLM API key (copy .env.example → .env and fill in)
+cp .env.example .env
 
 # Start the supervisor API (auto-inits DB on first run)
-python -m swarmmind.api.supervisor
+uv run python -m swarmmind.api.supervisor
 # API runs at http://localhost:8000
 
 # Frontend: install UI dependencies (new terminal)

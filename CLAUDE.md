@@ -1,16 +1,26 @@
 # SwarmMind — CLAUDE.md
 
-**AI agent team operating system. Phase 1 in progress.**
+**AI agent team operating system. Phase 1 — core complete, testing.**
 
 ## Project Overview
 
 SwarmMind is an **operating system for AI agent teams** — agents collaborate via shared context (not message passing), humans supervise, and the team self-evolves via strategy tables.
 
 - **Repo**: https://github.com/rongxinzy/SwarmMind
-- **Status**: Phase 1 — building minimal working system
+- **Status**: Phase 1 — core complete, testing
 - **Frontend**: shadcn/ui (React 18 + Tailwind CSS + Vite)
 - **Backend**: Python (FastAPI)
 - **Storage**: SQLite (Phase 1)
+- **Python env**: uv
+
+## Python Environment
+
+```bash
+uv sync          # install deps
+uv run python -m swarmmind.api.supervisor   # run API
+```
+
+**Secrets** → `.env` (gitignored). Copy `.env.example` to `.env` and fill in keys.
 
 ## Architecture
 
@@ -43,43 +53,33 @@ Human Supervisor
 ```
 swarmmind/
 ├── CLAUDE.md              ← 你在这里
-├── README.md               ← 英文 README (badges, tables, hero)
-├── README_zh.md           ← 中文 README
-├── requirements.txt
+├── README.md
+├── README_zh.md
+├── pyproject.toml         ← uv 项目定义
+├── .env.example          ← 密钥模板（不提交）
+├── .env                  ← 实际密钥（已 gitignore）
+├── requirements.txt       ← pip fallback
+├── .gitignore
 ├── swarmmind/
 │   ├── __init__.py
-│   ├── __version__ = "0.1.0"
-│   ├── config.py           ✅ Settings (LLM, DB, timeouts)
+│   ├── config.py           ✅ load_dotenv + LLM配置
 │   ├── db.py               ✅ SQLite schema + health check + seed
 │   ├── models.py           ✅ Pydantic models (all 6 tables)
-│   ├── context_broker.py   ✅ dispatch(), keyword routing, strategy table
-│   ├── shared_memory.py    ✅ KV store, last-write-wins, 409 retry
-│   ├── renderer.py         ✅ LLM Status Renderer (prose only)
+│   ├── context_broker.py   ✅ dispatch() + keyword routing + strategy table
+│   ├── shared_memory.py    ✅ KV store + last-write-wins + 409 retry
+│   ├── renderer.py         ✅ LLM Status Renderer
 │   ├── agents/
-│   │   ├── __init__.py
 │   │   ├── base.py         ✅ BaseAgent with LLM call + error handling
 │   │   ├── finance.py      ✅ FinanceAgent
 │   │   └── code_review.py  ✅ CodeReviewAgent
 │   └── api/
-│       ├── __init__.py
 │       └── supervisor.py   ✅ FastAPI supervisor REST API
 ├── ui/                    ✅ Supervisor web UI
-│   ├── package.json        ✅ Vite + React 18 + Tailwind + shadcn deps
+│   ├── src/App.tsx         ✅ Full supervisor UI
 │   ├── vite.config.ts
-│   ├── tailwind.config.js  ✅ shadcn/ui theme variables
-│   ├── postcss.config.js
-│   ├── tsconfig.json
-│   ├── tsconfig.node.json
-│   ├── index.html
-│   └── src/
-│       ├── main.tsx
-│       ├── App.tsx         ✅ Full supervisor UI (proposals + strategy + status)
-│       ├── index.css       ✅ Tailwind + shadcn CSS variables
-│       └── lib/
-│           └── utils.ts    ✅ cn() utility
+│   └── tailwind.config.js
 └── tests/
-    ├── __init__.py
-    ├── test_dispatch.py     ✅ dispatch, routing, strategy table tests
+    ├── test_dispatch.py     ✅ routing, strategy table, unknown goals
     └── test_shared_memory.py ✅ KV store tests
 ```
 
@@ -102,35 +102,41 @@ swarmmind/
   - POST /dispatch
 - [x] LLM Status Renderer (renderer.py)
 - [x] Supervisor UI (ui/) — **shadcn/ui**
-- [ ] Core tests (dispatch + shared_memory — written, need to run)
-- [ ] Action proposal timeout background scanner (running in API ✅)
+- [x] Core tests (dispatch + shared_memory)
+- [x] Action proposal timeout scanner (5 min background thread)
 
 ## Key Design Decisions
 
 - **No auth in Phase 1** — supervisor API is localhost-only
 - **Keyword routing** — Phase 1 placeholder; Phase 2 → embedding-based
 - **Last-write-wins** — shared memory conflict resolution
-- **No pagination on event_log** — Phase 1 scale is small
 - **Logging only** — no strict LLM response validation
 - **SQLite** — Phase 1 storage; swap-ready via abstraction
 
 ## LLM Configuration
 
-Set via environment variables:
+**`.env`** (gitignored — never commit):
 ```bash
-export OPENAI_API_KEY=sk-...
-# or
-export ANTHROPIC_API_KEY=sk-ant-...
-export LLM_PROVIDER=anthropic
+LLM_PROVIDER=anthropic
+LLM_MODEL=qwen3.5-plus
+ANTHROPIC_API_KEY=sk-sp-...       # Alibaba DashScope
+ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/apps/anthropic
+```
+
+**`.env.example`** (safe to commit — placeholder values):
+```bash
+LLM_PROVIDER=anthropic
+LLM_MODEL=qwen3.5-plus
+ANTHROPIC_API_KEY=your-api-key-here
+ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/apps/anthropic
 ```
 
 ## Running
 
 ```bash
 # Backend
-pip install -r requirements.txt
-python -m swarmmind.db  # init DB (or just start API — it auto-inits)
-python -m swarmmind.api.supervisor
+uv sync
+uv run python -m swarmmind.api.supervisor
 
 # Frontend (new terminal)
 cd ui && npm install && npm run dev
@@ -161,7 +167,7 @@ cd ui && npm install && npm run dev
 ## Running Tests
 
 ```bash
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 ## Related Docs
