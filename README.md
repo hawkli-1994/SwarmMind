@@ -1,14 +1,33 @@
 # SwarmMind
 
-**Where intelligent work emerges from collaboration.**
+<!-- Hero Tagline -->
+<p align="center">
+  <h1>🤖 SwarmMind</h1>
+  <strong>Where intelligent work emerges from collaboration.</strong><br>
+  <em>AI agent teams as primary actors — humans as referees.</em>
+</p>
 
-[![中文版](README_zh.md)](README_zh.md)
+<!-- Language Switcher (top center) -->
+<p align="center">
+  <a href="README_zh.md">🇨🇳 中文版</a>
+</p>
+
+<!-- Badges -->
+<p align="center">
+
+  <img src="https://img.shields.io/badge/Python-3.11+-blue.svg?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/License-Apache--2.0-green.svg?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/Phase-1-orange.svg?style=flat-square" alt="Phase">
+  <img src="https://img.shields.io/badge/AI%20Native-OS-black.svg?style=flat-square" alt="AI Native OS">
+  <img src="https://img.shields.io/badge/Architecture-Context%20Broker-purple.svg?style=flat-square" alt="Architecture">
+
+</p>
 
 ---
 
 ## The Problem
 
-Every tool we build answers the same question: *how do we help humans do knowledge work better?*
+Every tool we build asks: *how do we help humans do knowledge work better?*
 
 But we've never seriously asked:
 
@@ -20,214 +39,199 @@ SwarmMind is the answer.
 
 ---
 
-## Old Paradigm vs New Paradigm
+## Old Paradigm → New Paradigm
 
-**Old paradigm (existing tools):**
-- Jira = humans create tickets, assign tasks, track status
-- Confluence = humans write docs, search docs
-- Slack = humans send messages, wait for replies
-- GitHub PR = humans review code, leave comments
+| Tool | Old Paradigm (humans do, AI helps a little) | New Paradigm (AI agents do, humans supervise) |
+|------|---------------------------------------------|---------------------------------------------|
+| **Project Management** | Jira — humans create tickets, assign tasks | SwarmMind — AI routes goals, fills context gaps |
+| **Knowledge Base** | Confluence — humans write & search docs | AI agents share context, LLM generates views |
+| **Communication** | Slack — humans send, wait, reply | Agents write to shared context, no inbox |
+| **Code Review** | GitHub PR — humans review manually | AI agents review, collaborate, self-improve |
 
-Every tool: **humans do the work, AI helps a little.** AI is just a faster search, or an autocomplete prompt.
-
-**New paradigm (what we're building):**
-- SwarmMind = AI agent teams are the primary actors, humans are supervisors
-- Each agent specializes in one domain (finance, code review, customer support, product decisions)
-- Agents share context and collaborate on complex tasks
-- **The team operates as one unified intelligence**, with each agent professionally specialized
-
-This is the fundamental shift from *"humans are the main actors, AI is the assistant"* to ***AI agent teams are the main actors, humans are the referees.***
+**The shift:** *"humans are the main actors, AI is the assistant"* → ***AI agent teams are the main actors, humans are the referees.***
 
 ---
 
 ## What is SwarmMind
 
-SwarmMind is an **operating system for AI agent teams**.
+SwarmMind is an **operating system for AI agent teams** — not a message queue, not a workflow engine, not another "AI assistant." It's **enterprise cognitive infrastructure**.
 
-Not a message queue. Not a workflow engine. Not another "AI assistant." It's **enterprise cognitive infrastructure**.
-
-The core insight of operating systems is not "multiple processes on one machine" (that's just a fact). The real insight is:
-
-> **Multiple independent entities can collaborate without knowing each other exists — they coordinate through shared resources (files, memory, filesystem).**
-
-The analogy:
-- **Operating system**: Process A and Process B don't send messages to each other. They both read and write to the same files. The OS ensures they don't clobber each other's files.
-- **SwarmMind**: Agent A and Agent B don't send messages to each other. They both read and write to the same shared context. The Context Broker ensures they don't clobber each other's context.
+The core OS insight: **multiple independent entities don't need to know each other exist to collaborate** — they just share resources, and the OS coordinates access.
 
 ```
-You (human)
-  │
-  │  "What's the status of this project?"
-  ▼
-┌─────────────────────────────────────┐
-│        LLM STATUS RENDERER            │
-│  (on-demand: table? Gantt? prose?)   │
-└──────────┬──────────────────────────┘
-           │  reads all context
-           ▼
-┌─────────────────────────────────────┐
-│          CONTEXT BROKER              │
-│  (routes goals to the right agent)  │
-└──────────┬──────────────────────────┘
-           │
-     ┌─────┼─────┬────────┐
-     ▼     ▼     ▼        ▼
-  ┌────┐ ┌────┐ ┌────┐  ┌────┐
-  │ F. │ │ C. │ │ C. │  │ P. │
-  │Agent│ │Agent│ │Review│  │Data│
-  └────┘ └────┘ └────┘  └────┘
-                    │
-         ┌──────────▼──────────┐
-         │    SHARED CONTEXT    │
-         │ (all agents read from │
-         │  and write to one     │
-         │  shared memory)       │
-         └─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     You (human supervisor)                  │
+│              "What's the status of this project?"           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│               LLM STATUS RENDERER                           │
+│     ┌───────────────────────────────────────────────────┐   │
+│     │  On-demand: prose? table? Gantt? — LLM decides  │   │
+│     └───────────────────────────────────────────────────┘   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ reads accumulated context
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    CONTEXT BROKER                           │
+│     Routes goals → right agent, manages shared state        │
+└──────┬──────────┬──────────┬──────────┬───────────────────┘
+       │          │          │          │
+       ▼          ▼          ▼          ▼
+   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+   │Finance │ │Customer│ │  Code │ │Product │
+   │ Agent  │ │ Agent  │ │Review  │ │  Data  │
+   └────────┘ └────────┘ └────────┘ └────────┘
+                   │
+                   ▼
+        ┌──────────────────────┐
+        │   SHARED CONTEXT      │
+        │  (all agents read &   │
+        │   write one memory)   │
+        └──────────────────────┘
 ```
 
-**Why not message passing?**
-
-Imagine two human experts working in the same room — they don't email each other. They share the same whiteboard, the same document. SwarmMind is that shared room for AI agent teams.
+**Why not message passing?** Imagine two human experts in the same room — they don't email each other, they share a whiteboard. SwarmMind is that shared room for AI agents.
 
 ---
 
-## State is Context: Not Jira's Way
+## State is Context, Not Jira
 
-This is the most important AI-native思维 leap.
+Jira: `ticket.status = "In Progress"` → rigid, schema-enforced, forces work into 4 states.
 
-Jira turned "work state" into database records: `ticket.status = "In Progress"`. Humans understand project state by looking at tables and boards.
+**Real work never follows a 4-state flow.** A design iteration is simultaneously "draft," "in review," "waiting on client," and "partially done" — but Jira forces you to pick one.
 
-**This model has a fundamental flaw: real work never follows a 4-state flow.** A design iteration might simultaneously be "draft," "in review," "waiting on client," and "partially implemented" — but Jira forces you to pick one state and jam it into a schema.
-
-SwarmMind's answer:
+### SwarmMind's answer:
 
 > **State is not data. State is context.**
 
-When you give an agent the goal "write the quarterly financial report," you don't need a ticket system. The agent needs:
-- **What's already there?** (existing context)
-- **What's missing?** (context gap detection)
-- **Who fills the gap?** (route to the right agent)
+When you give an agent "write the quarterly financial report," the agent needs:
+- **What's already there?** → existing context
+- **What's missing?** → context gap detection
+- **Who fills the gap?** → routes to the right agent
 
 When all gaps are filled, the report writes itself. **No "In Progress," no tickets, no sub-tasks.**
 
-**So how does a human know the project's status?**
-
-Let the LLM generate human-readable views on demand from context.
-
-Human asks: "What's the status of this project?"
-→ LLM reads everything from shared context and generates a real-time summary — maybe a table, maybe a Gantt chart, maybe prose. **The form is decided by the LLM based on what best fits the current context.**
-
-```
-Jira model:
-state = database record (ticket.status = "In Progress")
-human reads: table + kanban + rigid states
-
-SwarmMind model:
-state = everything in shared context
-human reads: LLM real-time summary from context
-LLM decides: is a table clearest? Gantt? prose?
-rendered views are cached for fast re-access
-```
-
-This means:
-- **No rigid state schema** — context itself is state, no debates about "which state is this task in?"
-- **LLM is the most flexible UI** — same context, infinite human-friendly views
-- **Richer context → more accurate LLM summaries** — a positive feedback loop
-
-Jira is a "state database with an ugly UI."
-SwarmMind is "state is context, the only UI needed is an LLM that can summarize any context."
+Human asks "what's the status?" → LLM reads shared context → generates the best view (table, Gantt, or prose), **dynamically chosen by the LLM**.
 
 ---
 
-## Why "Operating System"
+## Self-Evolution: The Team Gets Smarter
 
-The OS insight: **processes don't need to know each other exist, don't need to send messages — they just share the filesystem, and the OS coordinates access.**
-
-That's why you can run ten programs simultaneously and they all work without sending messages to each other — they're all reading and writing to the same filesystem, with the OS coordinating behind the scenes.
-
-SwarmMind's insight is the same: **agents don't send messages to each other, they share context, and they collaborate.**
-
-Each agent only knows:
-- Its own specialized domain
-- How to access shared context
-- How to report results to the coordinator
-
-Each agent doesn't need to know:
-- What other agents are doing
-- How tasks are dispatched
-- What the team's overall strategy is
-
-**Emergent behavior**: when each agent focuses on doing its job well and can read from shared knowledge, the team as a whole exhibits "intelligence" — just as consciousness emerges from neurons cooperating.
-
----
-
-## Self-Evolution: Making the Team Smarter
-
-This is the most exciting part of SwarmMind.
-
-All existing AI systems share one flaw: **every conversation is a fresh start.** No matter how many times you use ChatGPT, it never remembers what went well or what didn't last time.
-
-SwarmMind solves this with **strategy tables**:
+Every existing AI system starts fresh every conversation. SwarmMind fixes this with **strategy tables**:
 
 ```
-Situation                  Routed to      Success Rate
-─────────────────────────────────────────────────────
-"Quarterly financial R."  → Finance Agent  92%
-"Python code review"      → Code Agent     87%
-"Customer complaint"      → CS Agent       71%  ← needs improvement
-"Competitive analysis"    → ???            0%   ← new situation, needs new agent
+ Situation                  Routed to        Success Rate
+────────────────────────────────────────────────────────────
+"Quarterly financial R."   → Finance Agent      92%
+"Python code review"       → Code Agent         87%
+"Customer complaint"       → CS Agent           71%  ← needs improvement
+"Competitive analysis"     → ???                0%  ← new situation
 ```
 
-The system observes:
-- Which situation was routed to which agent?
-- Was the result approved by the human supervisor?
-- Did the final result achieve the goal?
+The system observes: which situation → which agent → approved or rejected → achieved goal?
 
-Based on these observations, the system **automatically updates strategy** — meaning the team learns from every task and gets better.
+Based on these signals, the system **automatically updates routing strategy** — supervised by humans, instantly effective, fully auditable.
 
-This is not fine-tuning. This is **auditable, human-controllable, instantly effective** learning.
+**Not fine-tuning. Rule-based, observable, reversible learning.**
 
 ---
 
 ## Why Open Source
 
-Because this is infrastructure.
+Because this is **infrastructure for your enterprise's brain**. No one entrusts a black box with their cognitive infrastructure.
 
-Infrastructure must be transparent, auditable, and improvable. No one will entrust their enterprise's "brain" to a black-box system.
+The open source community will contribute: new agent types, better routing algorithms, novel collaboration patterns.
 
-More importantly: the open source community will make this system better. Researchers and engineers from around the world will contribute new agent types, new learning algorithms, new collaboration patterns.
-
-**Geek spirit**: this is something only geeks would find exciting — making AI agent teams truly collaborate like teams, self-evolve, and exhibit emergent intelligence. This is not "another SaaS tool." This is rethinking the nature of knowledge work.
+**Geek spirit:** making AI agent teams truly collaborate, self-evolve, and exhibit emergent intelligence. This isn't "another SaaS tool." It's rethinking the nature of knowledge work from first principles.
 
 ---
 
 ## Phase 1 Goals
 
-Build the minimal working system in two months:
+> *"An AI agent team that collaborates on knowledge work, learns from every task, and answers 'how's the project going?' with an AI-generated real-time summary — not a Jira table."*
 
-1. **Two specialized agents**: one handles finance Q&A, one handles code review
-2. **Shared context layer**: all agents share memory and knowledge
-3. **Context Broker**: routes human goals to the right agent
-4. **LLM Status Renderer**: human asks "what's the project status?" and gets an LLM-generated real-time summary (table, Gantt, or prose)
-5. **Human supervisor interface**: a human can observe, approve, or reject every decision
-6. **Strategy table**: records which situations should be routed to which agents
-
-After this system is built, we want to be able to say:
-
-> "Look, this is an AI agent team collaborating on knowledge work, and they're learning from every task to get better. Ask them how the project is going, and they'll give you an AI-generated real-time answer — not a Jira table."
+| # | Component | Description |
+|---|-----------|-------------|
+| 1 | **Two Specialized Agents** | Finance Q&A agent + Code review agent |
+| 2 | **Shared Context Layer** | All agents read/write one memory |
+| 3 | **Context Broker** | Routes goals to the right agent |
+| 4 | **LLM Status Renderer** | On-demand status summaries (prose/table/Gantt) |
+| 5 | **Human Supervisor Interface** | Observe, approve, or reject every action |
+| 6 | **Strategy Table** | Records routing rules, tracks success rate |
 
 ---
 
-## A Note to Investors and the Community
+## Quick Start
 
-**AI agents are not tools. AI agents are workers.**
+```bash
+# Clone the repo
+git clone https://github.com/rongxinzy/SwarmMind.git
+cd SwarmMind
 
-What we're building: making AI agent teams the primary actors in knowledge work, not assistant tools.
+# Install dependencies
+pip install -r requirements.txt
 
-This is not evolution. This is paradigm shift.
+# Initialize database
+python -m swarmmind.db init
+
+# Start the supervisor API
+python -m swarmmind.api
+
+# In another terminal, start a finance agent
+python -m swarmmind.agents.finance
+```
 
 ---
+
+## Architecture
+
+| Layer | Component | Responsibility |
+|-------|------------|-----------------|
+| **Human Interface** | LLM Status Renderer | Generates human-readable views on demand |
+| **Orchestration** | Context Broker | Routes goals, manages strategy table |
+| **Agent Layer** | Finance Agent, Code Review Agent | Specialized domain actors |
+| **Memory Layer** | Shared Context (SQLite) | Persistent shared memory, KV store |
+| **Supervisor API** | Web UI + REST API | Human oversight and approval |
+
+---
+
+## Project Status
+
+🟡 **Phase 1 — In Progress**
+
+Building the minimal working system:
+- [x] Project concept & design
+- [ ] Context Broker implementation
+- [ ] Finance + Code Review agents
+- [ ] Shared context layer
+- [ ] Supervisor API
+- [ ] LLM Status Renderer
+- [ ] Strategy table + self-evolution
+
+---
+
+## Contributing
+
+Contributions welcome. This is an open experiment in AI-native infrastructure.
+
+- Fork the repo
+- Read the [design doc](./docs/design.md) for architecture context
+- Open an issue before submitting large PRs
+
+---
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE)
+
+---
+
+<p align="center">
+
+🇨🇳 <a href="README_zh.md">中文版</a>
 
 *SwarmMind — where intelligent work emerges from collaboration.*
 
-**中文版**: [智能涌现](README_zh.md)
+</p>
