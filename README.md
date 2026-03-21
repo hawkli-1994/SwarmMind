@@ -91,6 +91,14 @@ The core OS insight: **multiple independent entities don't need to know each oth
 
 ---
 
+## Supervisor UI
+
+The human supervisor interface for interacting with the AI agent team:
+
+![SwarmMind Supervisor UI](ui/public/screenshot.png)
+
+---
+
 ## State is Context, Not Jira
 
 Jira: `ticket.status = "In Progress"` → rigid, schema-enforced, forces work into 4 states.
