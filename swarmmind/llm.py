@@ -145,7 +145,8 @@ class LLMClient:
             stream_resp = await litellm.acompletion(**kwargs)
             async for chunk in stream_resp:
                 delta = chunk["choices"][0]["delta"]
-                text = delta.get("content") or delta.get("reasoning_content") or ""
+                # Only use "content" - exclude "reasoning_content" (thinking chain)
+                text = delta.get("content") or ""
                 finish = chunk["choices"][0]["finish_reason"]
                 yield {"text": text, "finish": finish}
         except Exception as e:
