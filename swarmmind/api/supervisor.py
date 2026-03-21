@@ -9,6 +9,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT
@@ -33,6 +34,7 @@ from swarmmind.models import (
     SupervisorDecision,
 )
 from swarmmind.renderer import render_status
+from swarmmind.llm import LLMClient, LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +272,50 @@ def chat(request: ChatRequest):
     except Exception as e:
         logger.error("Chat error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _stream_chat(request: ChatRequest):
+    """Async generator for streaming chat responses in data-stream format."""
+    import json
+
+    messages = [{"role": "user", "content": request.message}]
+    try:
+        client = LLMClient()
+    except LLMError as e:
+        yield f"3:{json.dumps(str(e))}\n"
+        return
+
+    try:
+        async for chunk in client.stream(messages, max_tokens=1024):
+            if "error" in chunk:
+                yield f"3:{json.dumps(chunk['error'])}\n"
+                return
+            if chunk["text"]:
+                # data-stream text delta: "0:{text}\n"
+                yield f"0:{json.dumps(chunk['text'])}\n"
+            if chunk["finish"]:
+                # data-stream message finish: "d:{finishReason, usage}\n"
+                yield f"d:{json.dumps({'finishReason': chunk['finish'], 'usage': {}})}\n"
+    except Exception as e:
+        logger.error("Chat stream error: %s", e)
+        yield f"3:{json.dumps(str(e))}\n"
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """
+    Streaming chat endpoint — returns SSE in data-stream format for assistant-ui.
+
+    Format:
+      0:{text}   — text delta (JSON string)
+      d:{finish} — message finish (JSON {finishReason, usage})
+      3:{error}  — error message (JSON string)
+    """
+    return StreamingResponse(
+        _stream_chat(request),
+        media_type="text/plain; charset=utf-8",
+        headers={"x-vercel-ai-data-stream": "v1"},
+    )
 
 
 # ---- Run ----

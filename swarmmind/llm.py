@@ -4,6 +4,7 @@ Phase 1: uses httpx directly for DashScope Anthropic-compatible endpoint.
 Phase 2: swap this implementation for any provider's SDK.
 """
 
+import json
 import logging
 
 import httpx
@@ -114,3 +115,39 @@ class LLMClient:
             raise LLMError(f"LLM HTTP error {e.response.status_code}: {e.response.text[:200]}")
         except (KeyError, IndexError, ValueError) as e:
             raise LLMError(f"LLM response parse error: {e}")
+
+    async def stream(self, messages: list[dict], max_tokens: int = 1024):
+        """
+        Stream LLM response chunks as async generator.
+
+        Yields:
+            dict with optional 'content' or 'reasoning_content' text delta,
+            and 'finish' when the stream ends.
+
+        Args:
+            messages: list of {"role": "user"|"assistant", "content": "..."}
+            max_tokens: max tokens in response
+        """
+        import litellm
+
+        litellm_model = f"{self.provider}/{self.model}"
+        kwargs = {
+            "model": litellm_model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "stream": True,
+            "api_key": self.api_key,
+        }
+        if self.base_url:
+            kwargs["api_base"] = self.base_url
+
+        try:
+            stream_resp = await litellm.acompletion(**kwargs)
+            async for chunk in stream_resp:
+                delta = chunk["choices"][0]["delta"]
+                text = delta.get("content") or delta.get("reasoning_content") or ""
+                finish = chunk["choices"][0]["finish_reason"]
+                yield {"text": text, "finish": finish}
+        except Exception as e:
+            logger.error("LLM stream error: %s", e)
+            yield {"error": str(e), "finish": "stop"}

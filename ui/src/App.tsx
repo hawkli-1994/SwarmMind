@@ -35,11 +35,7 @@ export default function App() {
   const renderContent = () => {
     switch (activeView) {
       case "tasks":
-        return (
-          <div className="h-full flex flex-col">
-            <V0Chat />
-          </div>
-        )
+        return <V0Chat />
 
       case "projects":
         return (
