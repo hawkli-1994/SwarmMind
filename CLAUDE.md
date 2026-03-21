@@ -100,6 +100,7 @@ swarmmind/
   - GET  /status?goal=...
   - GET  /strategy
   - POST /dispatch
+  - POST /chat ✅ (Phase 1: stateless LLM query via render_status)
 - [x] LLM Status Renderer (renderer.py)
 - [x] Supervisor UI (ui/) — **shadcn/ui**
 - [x] Core tests (dispatch + shared_memory)
@@ -133,13 +134,29 @@ ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/apps/anthropic
 
 ## Running
 
+**PM2 + Makefile (recommended for development):**
+```bash
+make install   # install all deps (uv sync + pnpm install)
+make dev       # start both backend + frontend via PM2
+make logs      # tail PM2 logs
+make stop      # stop all services
+make status   # show PM2 status
+```
+
+**Individual services:**
+```bash
+make backend   # backend only (uv + FastAPI on :8000)
+make frontend  # frontend only (pnpm + Vite on :3000)
+```
+
+**Manual (without PM2):**
 ```bash
 # Backend
 uv sync
 uv run python -m swarmmind.api.supervisor
 
-# Frontend (new terminal)
-cd ui && npm install && npm run dev
+# Frontend
+cd ui && pnpm install && pnpm run dev
 ```
 
 ## Supervisor UI

@@ -55,18 +55,18 @@ Respond with ONLY a prose summary. No tables, no bullet lists, no code fences.
 Just natural language that a human supervisor can quickly read to understand status."""
 
     try:
-        # Configure litellm for DashScope Anthropic-compatible API
-        if LLM_BASE_URL:
-            litellm.api_base = LLM_BASE_URL
-
         # Use litellm for unified LLM API (supports 100+ providers including DashScope Anthropic)
-        response = litellm.completion(
-            model=f"{LLM_PROVIDER}/{LLM_MODEL}",
-            messages=[{"role": "user", "content": prompt}],
-            api_key=LLM_API_KEY,
-            max_tokens=1024,
-            temperature=0.4,
-        )
+        completion_kwargs = {
+            "model": f"{LLM_PROVIDER}/{LLM_MODEL}",
+            "messages": [{"role": "user", "content": prompt}],
+            "api_key": LLM_API_KEY,
+            "max_tokens": 1024,
+            "temperature": 0.4,
+        }
+        if LLM_BASE_URL:
+            completion_kwargs["api_base"] = LLM_BASE_URL
+
+        response = litellm.completion(**completion_kwargs)
         summary = response["choices"][0]["message"]["content"]
         return summary.strip()
     except Exception as e:
