@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT
 from swarmmind.context_broker import (
@@ -45,6 +45,15 @@ class StatusResponse(BaseModel):
 
 class StrategyChangeApproveRequest(BaseModel):
     change_id: str
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., max_length=2000)
+    history: list[dict] = Field(default=[], exclude=True)  # reserved for Phase 2
+
+
+class ChatResponse(BaseModel):
+    response: str
 
 
 # ---- FastAPI app ----
@@ -247,6 +256,20 @@ def post_dispatch(body: GoalRequest):
 def health():
     """Health check endpoint."""
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest):
+    """
+    Chat endpoint — Phase 1 uses render_status() for stateless LLM queries.
+    Does not create proposals or invoke agents (reserved for Phase 2).
+    """
+    try:
+        summary = render_status(request.message)
+        return ChatResponse(response=summary)
+    except Exception as e:
+        logger.error("Chat error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---- Run ----
