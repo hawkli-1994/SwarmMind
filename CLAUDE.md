@@ -57,19 +57,20 @@ swarmmind/
 ├── README_zh.md
 ├── pyproject.toml         ← uv 项目定义
 ├── .env.example          ← 密钥模板（不提交）
-├── .env                  ← 实际密钥（已 gitignore）
+├── .env                  ← 实际密钥（已 gitignore，通过符号链接共享）
 ├── requirements.txt       ← pip fallback
 ├── .gitignore
 ├── swarmmind/
 │   ├── __init__.py
 │   ├── config.py           ✅ load_dotenv + LLM配置
+│   ├── llm.py              ✅ 统一 LLMClient（所有 LLM 调用的唯一入口）
 │   ├── db.py               ✅ SQLite schema + health check + seed
 │   ├── models.py           ✅ Pydantic models (all 6 tables)
 │   ├── context_broker.py   ✅ dispatch() + keyword routing + strategy table
 │   ├── shared_memory.py    ✅ KV store + last-write-wins + 409 retry
-│   ├── renderer.py         ✅ LLM Status Renderer
+│   ├── renderer.py         ✅ LLM Status Renderer（使用 LLMClient）
 │   ├── agents/
-│   │   ├── base.py         ✅ BaseAgent with LLM call + error handling
+│   │   ├── base.py         ✅ BaseAgent（使用 LLMClient）
 │   │   ├── finance.py      ✅ FinanceAgent
 │   │   └── code_review.py  ✅ CodeReviewAgent
 │   └── api/
@@ -100,6 +101,7 @@ swarmmind/
   - GET  /status?goal=...
   - GET  /strategy
   - POST /dispatch
+  - POST /chat ✅ (Phase 1: stateless LLM query via render_status)
 - [x] LLM Status Renderer (renderer.py)
 - [x] Supervisor UI (ui/) — **shadcn/ui**
 - [x] Core tests (dispatch + shared_memory)
@@ -115,31 +117,49 @@ swarmmind/
 
 ## LLM Configuration
 
+> **Worktree 注意**：`worktree/`.env 通过符号链接指向主仓库的 `.env`，确保两边共享同一份密钥。
+
 **`.env`** (gitignored — never commit):
 ```bash
-LLM_PROVIDER=anthropic
+LLM_PROVIDER=openai                              # 或 anthropic
 LLM_MODEL=qwen3.5-plus
-ANTHROPIC_API_KEY=sk-sp-...       # Alibaba DashScope
-ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/apps/anthropic
+ANTHROPIC_API_KEY=sk-sp-...                     # Alibaba DashScope Coding Plan
+ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/v1  # OpenAI 兼容协议
 ```
 
 **`.env.example`** (safe to commit — placeholder values):
 ```bash
-LLM_PROVIDER=anthropic
+LLM_PROVIDER=openai
 LLM_MODEL=qwen3.5-plus
 ANTHROPIC_API_KEY=your-api-key-here
-ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/apps/anthropic
+ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/v1
 ```
 
 ## Running
 
+**PM2 + Makefile (recommended for development):**
+```bash
+make install   # install all deps (uv sync + pnpm install)
+make dev       # start both backend + frontend via PM2
+make logs      # tail PM2 logs
+make stop      # stop all services
+make status   # show PM2 status
+```
+
+**Individual services:**
+```bash
+make backend   # backend only (uv + FastAPI on :8000)
+make frontend  # frontend only (pnpm + Vite on :3000)
+```
+
+**Manual (without PM2):**
 ```bash
 # Backend
 uv sync
 uv run python -m swarmmind.api.supervisor
 
-# Frontend (new terminal)
-cd ui && npm install && npm run dev
+# Frontend
+cd ui && pnpm install && pnpm run dev
 ```
 
 ## Supervisor UI

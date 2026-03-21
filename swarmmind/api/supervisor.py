@@ -9,7 +9,8 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT
 from swarmmind.context_broker import (
@@ -33,6 +34,7 @@ from swarmmind.models import (
     SupervisorDecision,
 )
 from swarmmind.renderer import render_status
+from swarmmind.llm import LLMClient, LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,15 @@ class StatusResponse(BaseModel):
 
 class StrategyChangeApproveRequest(BaseModel):
     change_id: str
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., max_length=2000)
+    history: list[dict] = Field(default=[], exclude=True)  # reserved for Phase 2
+
+
+class ChatResponse(BaseModel):
+    response: str
 
 
 # ---- FastAPI app ----
@@ -247,6 +258,67 @@ def post_dispatch(body: GoalRequest):
 def health():
     """Health check endpoint."""
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest):
+    """
+    Chat endpoint — Phase 1 uses render_status() for stateless LLM queries.
+    Does not create proposals or invoke agents (reserved for Phase 2).
+    """
+    try:
+        summary = render_status(request.message)
+        return ChatResponse(response=summary)
+    except Exception as e:
+        logger.error("Chat error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _stream_chat(request: ChatRequest):
+    """Async generator for streaming chat responses in data-stream format."""
+    import json
+
+    messages = [{"role": "user", "content": request.message}]
+    try:
+        client = LLMClient()
+    except LLMError as e:
+        yield f"3:{json.dumps(str(e))}\n"
+        return
+
+    try:
+        async for chunk in client.stream(messages, max_tokens=1024):
+            if "error" in chunk:
+                yield f"3:{json.dumps(chunk['error'])}\n"
+                return
+            if chunk.get("thinking"):
+                # data-stream thinking delta: "1:{text}\n"
+                yield f"1:{json.dumps(chunk['thinking'])}\n"
+            if chunk.get("text"):
+                # data-stream text delta: "0:{text}\n"
+                yield f"0:{json.dumps(chunk['text'])}\n"
+            if chunk.get("finish"):
+                # data-stream message finish: "d:{finishReason, usage}\n"
+                yield f"d:{json.dumps({'finishReason': chunk['finish'], 'usage': {}})}\n"
+    except Exception as e:
+        logger.error("Chat stream error: %s", e)
+        yield f"3:{json.dumps(str(e))}\n"
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """
+    Streaming chat endpoint — returns SSE in data-stream format for assistant-ui.
+
+    Format:
+      0:{text}   — text delta (JSON string)
+      d:{finish} — message finish (JSON {finishReason, usage})
+      3:{error}  — error message (JSON string)
+    """
+    return StreamingResponse(
+        _stream_chat(request),
+        media_type="text/plain; charset=utf-8",
+        headers={"x-vercel-ai-data-stream": "v1"},
+    )
 
 
 # ---- Run ----
