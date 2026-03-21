@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT
 from swarmmind.context_broker import (
-    create_action_proposal,
+    derive_situation_tag,
     dispatch,
     record_supervisor_decision,
     route_to_agent,
@@ -42,6 +42,8 @@ from swarmmind.models import (
 )
 from swarmmind.renderer import generate_conversation_title, render_status
 from swarmmind.llm import LLMClient, LLMError
+from swarmmind.agents.finance import FinanceAgent
+from swarmmind.agents.code_review import CodeReviewAgent
 
 logger = logging.getLogger(__name__)
 
@@ -354,38 +356,97 @@ def get_conversation_messages(conversation_id: str):
 
 @app.post("/conversations/{conversation_id}/messages")
 def send_message(conversation_id: str, body: SendMessageRequest):
-    """Send a user message and get an AI response."""
+    """
+    Send a user message and get an AI response.
+
+    Routing logic:
+    1. Try dispatch() to route to a specialized agent
+    2. If routed: auto-approve, execute agent, use result as response
+    3. If no_route: fall back to render_status() (direct LLM)
+    """
+    # Validate conversation first
     conn = get_connection()
     try:
         cursor = conn.cursor()
-
         cursor.execute("SELECT id FROM conversations WHERE id = ?", (conversation_id,))
         if cursor.fetchone() is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
+    finally:
+        conn.close()
 
-        user_msg_id = str(uuid.uuid4())
+    # Save user message
+    user_msg_id = str(uuid.uuid4())
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
             (user_msg_id, conversation_id, "user", body.content),
         )
-
         cursor.execute(
             "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (conversation_id,),
         )
+        conn.commit()
+    finally:
+        conn.close()
 
+    # Route through ContextBroker — use lightweight check first to avoid creating orphaned proposals
+    situation_tag = derive_situation_tag(body.content)
+    routed_agent_id = route_to_agent(situation_tag)
+
+    if routed_agent_id is None:
+        # No agent matched — fall back to direct LLM (no proposal created)
         try:
             ai_response = render_status(body.content)
         except Exception as e:
             logger.error("render_status error: %s", e)
             ai_response = f"I received your message: {body.content}. How can I help you?"
+    else:
+        # Agent matched — full dispatch, auto-approve, and execute
+        dispatch_result = dispatch(body.content)
+        proposal_id = dispatch_result.action_proposal_id
+        agent_id = dispatch_result.agent_id
 
-        assistant_msg_id = str(uuid.uuid4())
+        # Mark proposal as approved
+        conn2 = get_connection()
+        try:
+            cursor2 = conn2.cursor()
+            cursor2.execute(
+                "UPDATE action_proposals SET status = ? WHERE id = ?",
+                (ProposalStatus.APPROVED.value, proposal_id),
+            )
+            conn2.commit()
+        finally:
+            conn2.close()
+
+        # Log supervisor decision
+        record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
+
+        # Execute the agent
+        try:
+            if agent_id == "finance":
+                agent = FinanceAgent()
+            elif agent_id == "code_review":
+                agent = CodeReviewAgent()
+            else:
+                raise ValueError(f"Unknown agent_id: {agent_id}")
+
+            completed_proposal = agent.act(body.content, proposal_id)
+            ai_response = completed_proposal.description
+        except Exception as e:
+            logger.error("Agent execution error: %s", e)
+            ai_response = f"I attempted to process your request but encountered an error: {e}"
+
+    # Save assistant response
+    assistant_msg_id = str(uuid.uuid4())
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
             (assistant_msg_id, conversation_id, "assistant", ai_response),
         )
-
         conn.commit()
 
         cursor.execute("SELECT * FROM messages WHERE id = ?", (user_msg_id,))

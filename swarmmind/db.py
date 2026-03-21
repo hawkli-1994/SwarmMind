@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS strategy_table (
     agent_id        TEXT NOT NULL,
     success_count   INTEGER DEFAULT 0,
     failure_count   INTEGER DEFAULT 0,
-    FOREIGN KEY (agent_id) REFERENCES agents(agent_id)
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Audit log of every goal dispatch
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS action_proposals (
     confidence      REAL DEFAULT 0.5,
     status          TEXT DEFAULT 'pending',  -- 'pending' | 'approved' | 'rejected' | 'executed'
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (agent_id) REFERENCES agents(agent_id)
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Strategy change proposals (routing updates, human-approved)
@@ -198,10 +198,11 @@ def seed_default_agents() -> None:
 
         # Seed initial strategy table entries
         strategies = [
+            ("finance", "finance"),          # domain-level fallback
             ("finance_qa", "finance"),
             ("quarterly_report", "finance"),
             ("revenue_analysis", "finance"),
-            ("code_review", "code_review"),
+            ("code_review", "code_review"),   # domain-level fallback
             ("python_review", "code_review"),
             ("pr_review", "code_review"),
         ]
