@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/Python-3.11+-blue.svg?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-Apache--2.0-green.svg?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/Phase-1-orange.svg?style=flat-square" alt="Phase">
+  <img src="https://img.shields.io/badge/Phase-2a-dev-yellow.svg?style=flat-square" alt="Phase 2a">
   <img src="https://img.shields.io/badge/AI%20Native-OS-black.svg?style=flat-square" alt="AI Native OS">
   <img src="https://img.shields.io/badge/架构-上下文broker-purple.svg?style=flat-square" alt="Architecture">
 
@@ -153,6 +154,68 @@ Jira 把"工作状态"变成数据库里的 record：`ticket.status = "In Progre
 
 ---
 
+## 路线图
+
+| 阶段 | 重点 | 状态 |
+|------|------|------|
+| **Phase 1** | 核心系统：多 agent 路由、共享上下文、监督审批流程 | ✅ 已完成 |
+| **Phase 2a** | **协作轨迹可见化** — 任务完成后回放完整推理过程 | 🚧 开发中 |
+| **Phase 2b** | **实时协作 + 人工干预** — SSE 实时推送、干预消息、用户体系 | 📋 计划中 |
+| **Phase 3** | **动态 Agent 上线 + 自主模式** — 系统自动发现新 agent，高置信度任务自动执行 | 📋 计划中 |
+
+### Phase 2a: 协作轨迹可见化
+
+> 与单轮 chat 的核心区别：用户**能看到团队是怎么思考的**。
+
+每个 agent 在执行过程中将推理步骤写入 `event_log`。任务完成后，用户可以回放完整协作时间线——每步可展开，每一步思考都可见。
+
+```
+用户提交任务
+       │
+       ▼
+  Context Broker 路由目标
+       │
+       ▼
+  Agent A (财务) — 思考中... ──▶ event_log: 推理步骤 1
+       │                                           │
+       ▼                                           ▼
+  Shared Memory 写入                            event_log: 推理步骤 2
+       │                                           │
+       ▼                                           ▼
+  Agent B (代码审查) — 思考中...             event_log: 推理步骤 3
+       │
+       ▼
+  任务完成 → 用户回放完整轨迹（可展开时间线）
+```
+
+**Phase 2a 交付内容：**
+- `event_log` schema 扩展（reasoning、status、parent_event_id）
+- `GET /tasks/{id}/trace` API — 完整协作历史
+- 回放界面 — 逐步播放，可配置速度
+- 公开任务链接（基于 UUID，无需登录）
+
+### Phase 2b: 实时协作 + 人工干预
+
+> 观看团队工作。只在关键时候介入。
+
+SSE 实时流将 agent 推理过程推送到浏览器。人类可以随时注入指导消息——agent 收到后作为额外上下文参考，决定是否采纳。
+
+**Phase 2b 新增：**
+- SSE 实时流（`GET /tasks/{id}/stream`）
+- 人工干预 API（`POST /tasks/{id}/guidance`）
+- 每任务最多 3 次干预（防止过度干预）
+- 用户账户 + 会话管理
+- 用户任务历史
+
+### Phase 3: 动态团队自进化
+
+- 系统发现"未知情况" → 提案新 agent 类型
+- 人类审批通过 → agent 自动注册到策略表
+- 高置信度任务（历史成功率 >90%）自动执行，无需审批
+- Phase 3 是团队真正**自进化**的时刻
+
+---
+
 ## Phase 1 目标
 
 > "看，这是一个 AI agent 团队，它们在协作完成知识工作，而且它们在从每次工作中学习，变得更好。问它们项目进行到哪了，它们会给你一个 AI 实时生成的回答，而不是一张 Jira 表格。"
@@ -215,9 +278,9 @@ npm run dev                # 开发模式，热重载
 
 ## 项目状态
 
-🟡 **Phase 1 — 核心完成**
+🟡 **Phase 1 — 已完成** | 🚧 **Phase 2a — 开发中**
 
-构建最小可工作系统：
+### Phase 1 — 已完成
 - [x] 项目概念与设计
 - [x] Context Broker 实现
 - [x] 财务 + 代码审查 Agent
@@ -228,6 +291,14 @@ npm run dev                # 开发模式，热重载
 - [x] 策略表 + 成功率追踪
 - [x] Action proposal 超时机制（5 分钟）
 - [x] 核心测试
+- [x] 对话功能（流式输出 + 会话持久化 + LLM 生成标题）
+
+### Phase 2a — 开发中
+- [ ] `event_log` schema 扩展（reasoning、status、parent_event_id）
+- [ ] `act()` 返回 EventLogEntry 与 ActionProposal
+- [ ] `GET /tasks/{id}/trace` API
+- [ ] 回放界面（时间线 + 可展开步骤 + 播放控制）
+- [ ] 公开任务链接分享（基于 UUID，无需认证）
 
 ---
 

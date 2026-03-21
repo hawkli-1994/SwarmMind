@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/Python-3.11+-blue.svg?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/License-Apache--2.0-green.svg?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/Phase-1-orange.svg?style=flat-square" alt="Phase">
+  <img src="https://img.shields.io/badge/Phase-2a-dev-yellow.svg?style=flat-square" alt="Phase 2a">
   <img src="https://img.shields.io/badge/AI%20Native-OS-black.svg?style=flat-square" alt="AI Native OS">
   <img src="https://img.shields.io/badge/Architecture-Context%20Broker-purple.svg?style=flat-square" alt="Architecture">
 
@@ -151,6 +152,68 @@ The open source community will contribute: new agent types, better routing algor
 
 ---
 
+## Roadmap
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| **Phase 1** | Core system: multi-agent routing, shared context, supervisor approval flow | ✅ Complete |
+| **Phase 2a** | **Collaboration Trace Visibility** — replay the full agent reasoning process after each task | 🚧 In Progress |
+| **Phase 2b** | **Real-time Collaboration + Human Guidance** — live SSE stream, intervention API, user accounts | 📋 Planned |
+| **Phase 3** | **Dynamic Agent Onboarding + Autonomous Mode** — system proposes new agents, confident tasks auto-execute | 📋 Planned |
+
+### Phase 2a: Collaboration Trace Visibility
+
+> The core differentiator vs. single-turn chat: users can **see how the team thinks**.
+
+Each agent writes its reasoning steps to `event_log` during execution. After a task completes, users can replay the full collaboration timeline — every step expanded, every thought visible.
+
+```
+Task submitted
+       │
+       ▼
+  Context Broker routes goal
+       │
+       ▼
+  Agent A (Finance) — thinking... ──▶ event_log: reasoning step 1
+       │                                           │
+       ▼                                           ▼
+  Shared Memory write                         event_log: reasoning step 2
+       │                                           │
+       ▼                                           ▼
+  Agent B (Code Review) — thinking...        event_log: reasoning step 3
+       │
+       ▼
+  Task complete → User replays full trace (expandable timeline)
+```
+
+**Phase 2a delivers:**
+- `event_log` schema extension (reasoning, status, parent events)
+- `GET /tasks/{id}/trace` API — full collaboration history
+- Replay UI — step-by-step playback with configurable speed
+- Public task links (UUID-based, no login required)
+
+### Phase 2b: Real-time + Human Guidance
+
+> Watch the team work. Step in only when it matters.
+
+SSE-powered live streaming of agent reasoning to the browser. Humans can inject guidance messages at any time — the agent receives them as extra context and decides whether to adopt.
+
+**Phase 2b adds:**
+- SSE real-time stream (`GET /tasks/{id}/stream`)
+- Human intervention API (`POST /tasks/{id}/guidance`)
+- Max 3 interventions per task (prevents micromanagement)
+- User accounts + session management
+- Task history per user
+
+### Phase 3: Dynamic Team Growth
+
+- System detects "unknown situation" → proposes new agent type
+- Supervisor approves → agent auto-registers with strategy table
+- Confident tasks (>90% success history) auto-execute without approval
+- Phase 3 is when the team truly **self-evolves**
+
+---
+
 ## Phase 1 Goals
 
 > *"An AI agent team that collaborates on knowledge work, learns from every task, and answers 'how's the project going?' with an AI-generated real-time summary — not a Jira table."*
@@ -206,9 +269,9 @@ cd ui && npm install && npm run dev
 
 ## Project Status
 
-🟡 **Phase 1 — Core Complete**
+🟡 **Phase 1 — Complete** | 🚧 **Phase 2a — In Progress**
 
-Building the minimal working system:
+### Phase 1 — Complete
 - [x] Project concept & design
 - [x] Context Broker implementation
 - [x] Finance + Code Review agents
@@ -219,6 +282,14 @@ Building the minimal working system:
 - [x] Strategy table with success tracking
 - [x] Action proposal timeout (5 min)
 - [x] Core tests
+- [x] Chat conversation with streaming + persistence
+
+### Phase 2a — In Progress
+- [ ] `event_log` schema extension (reasoning, status, parent_event_id)
+- [ ] `act()` returns EventLogEntry alongside ActionProposal
+- [ ] `GET /tasks/{id}/trace` API
+- [ ] Replay UI (timeline + expandable steps + playback controls)
+- [ ] Public task link sharing (UUID-based, no auth)
 
 ---
 
