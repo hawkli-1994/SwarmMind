@@ -2,18 +2,14 @@
 
 import json
 import logging
-import os
 import re
-import time
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-import httpx
-
-from swarmmind.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER
 from swarmmind.context_broker import create_action_proposal, update_proposal_result
 from swarmmind.db import get_connection
+from swarmmind.llm import LLMClient, LLMError
 from swarmmind.models import ActionProposal, ProposalStatus
 from swarmmind.shared_memory import SharedMemory
 
@@ -102,68 +98,12 @@ class BaseAgent(ABC):
         )
 
     def _call_llm(self, prompt: str) -> str:
-        """Call the configured LLM API."""
-        if LLM_PROVIDER == "anthropic":
-            return self._call_anthropic(prompt)
-        return self._call_openai(prompt)
-
-    def _call_openai(self, prompt: str) -> str:
-        """Call OpenAI-compatible API."""
-        api_key = LLM_API_KEY or os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            raise AgentError("OPENAI_API_KEY not set")
-
-        base_url = LLM_BASE_URL or "https://api.openai.com/v1"
-        url = f"{base_url.rstrip('/')}/chat/completions"
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": LLM_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 4096,
-            "temperature": 0.3,
-        }
-
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
-
-        logger.debug("LLM raw response (first 200 chars): %s", content[:200])
-        return content
-
-    def _call_anthropic(self, prompt: str) -> str:
-        """Call Anthropic API."""
-        api_key = LLM_API_KEY or os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise AgentError("ANTHROPIC_API_KEY not set")
-
-        base_url = LLM_BASE_URL or "https://api.anthropic.com/v1"
-        url = f"{base_url.rstrip('/')}/messages"
-
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": LLM_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 4096,
-        }
-
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            content = data["content"][0]["text"]
-
-        logger.debug("LLM raw response (first 200 chars): %s", content[:200])
-        return content
+        """Call the configured LLM API via the shared LLMClient."""
+        try:
+            client = LLMClient()
+            return client.complete(prompt, max_tokens=4096)
+        except LLMError as e:
+            raise AgentError(str(e)) from e
 
     def act(self, goal: str, action_proposal_id: str) -> ActionProposal:
         """
@@ -184,9 +124,9 @@ class BaseAgent(ABC):
 
         try:
             raw_response = self._call_llm(prompt)
-        except httpx.TimeoutException:
-            logger.error("LLM timeout for agent=%s goal=%r", self.agent_id, goal[:50])
-            raise AgentError(f"LLM timeout for agent {self.agent_id}")
+        except AgentError as e:
+            logger.error("LLM error for agent=%s goal=%r: %s", self.agent_id, goal[:50], e)
+            raise
 
         # Empty response check
         if not raw_response or not raw_response.strip():

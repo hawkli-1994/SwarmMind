@@ -30,8 +30,10 @@ backend: ## Run backend only via PM2
 	pm2 start "uv run python -m swarmmind.api.supervisor" --name=$(PM2_NAME_API) --cwd=$(BACKEND_DIR)
 
 # ---- PM2 ----
-restart: ## Restart both services
-	pm2 restart $(PM2_NAME_API) $(PM2_NAME_UI)
+restart: ## Restart both services (delete + start to pick up code changes)
+	pm2 delete $(PM2_NAME_API) $(PM2_NAME_UI) 2>/dev/null; \
+	pm2 start "uv run python -m swarmmind.api.supervisor" --name=$(PM2_NAME_API) --cwd=$(BACKEND_DIR); \
+	pm2 start "pnpm run dev" --name=$(PM2_NAME_UI) --cwd=$(UI_DIR)
 
 stop: ## Stop both services
 	pm2 stop $(PM2_NAME_API) $(PM2_NAME_UI)

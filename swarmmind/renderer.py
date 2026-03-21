@@ -2,9 +2,7 @@
 
 import logging
 
-import litellm
-
-from swarmmind.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER
+from swarmmind.llm import LLMClient, LLMError
 from swarmmind.shared_memory import SharedMemory
 
 logger = logging.getLogger(__name__)
@@ -55,21 +53,10 @@ Respond with ONLY a prose summary. No tables, no bullet lists, no code fences.
 Just natural language that a human supervisor can quickly read to understand status."""
 
     try:
-        # Use litellm for unified LLM API (supports 100+ providers including DashScope Anthropic)
-        completion_kwargs = {
-            "model": f"{LLM_PROVIDER}/{LLM_MODEL}",
-            "messages": [{"role": "user", "content": prompt}],
-            "api_key": LLM_API_KEY,
-            "max_tokens": 1024,
-            "temperature": 0.4,
-        }
-        if LLM_BASE_URL:
-            completion_kwargs["api_base"] = LLM_BASE_URL
-
-        response = litellm.completion(**completion_kwargs)
-        summary = response["choices"][0]["message"]["content"]
+        client = LLMClient()
+        summary = client.complete(prompt, max_tokens=1024)
         return summary.strip()
-    except Exception as e:
+    except LLMError as e:
         logger.error("LLM Status Renderer error: %s", e)
         return (
             f"[Status renderer error: {e}] "
