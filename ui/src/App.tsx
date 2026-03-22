@@ -56,8 +56,6 @@ export default function App() {
           />
         )
       case "projects":
-
-      case "projects":
         return (
           <PlaceholderView
             icon={<FolderKanban className="w-8 h-8 text-muted-foreground" />}

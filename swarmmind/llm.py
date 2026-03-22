@@ -1,13 +1,14 @@
 """Unified LLM client — single place for all LLM API calls.
 
-Phase 1: uses httpx directly for DashScope Anthropic-compatible endpoint.
+Phase 1: uses litellm for both streaming and non-streaming calls.
 Phase 2: swap this implementation for any provider's SDK.
 """
 
 import json
 import logging
+import os
 
-import httpx
+import litellm
 
 from swarmmind.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER
 
@@ -40,13 +41,14 @@ class LLMClient:
                 f"provider={self.provider}"
             )
 
-    def complete(self, prompt: str, max_tokens: int = 4096) -> str:
+    def complete(self, prompt: str, max_tokens: int = 4096, reasoning: bool = False) -> str:
         """
         Send a prompt and return the LLM's text response.
 
         Args:
             prompt: the full prompt to send
             max_tokens: max tokens in response
+            reasoning: whether to enable reasoning/thinking mode (default False for speed)
 
         Returns:
             The LLM's text response string.
@@ -54,69 +56,44 @@ class LLMClient:
         Raises:
             LLMError: on any failure (auth, timeout, parse error)
         """
-        if self.provider == "anthropic":
-            return self._complete_anthropic(prompt, max_tokens)
-        else:
-            return self._complete_openai(prompt, max_tokens)
-
-    def _complete_anthropic(self, prompt: str, max_tokens: int) -> str:
-        """Call Anthropic-compatible API (e.g. DashScope)."""
-        base = (self.base_url or "https://api.anthropic.com").rstrip("/")
-        url = f"{base}/messages"
-
-        headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
+        litellm_model = f"{self.provider}/{self.model}"
+        messages = [{"role": "user", "content": prompt}]
+        kwargs = {
+            "model": litellm_model,
+            "messages": messages,
             "max_tokens": max_tokens,
+            "api_key": self.api_key,
         }
+        if self.base_url:
+            kwargs["api_base"] = self.base_url
+        # Disable thinking/reasoning mode for speed when not needed (DashScope qwen models)
+        if not reasoning:
+            kwargs["extra_body"] = {"think": False}
+
+        # litellm respects this for per-request timeout
+        kwargs["request_timeout"] = 120
+        # Disable litellm's default retry behavior — DashScope qwen models
+        # can be slow and retries compound latency. Fail fast instead.
+        kwargs["max_retries"] = 0
+
+        # Clear proxy env vars for this request to prevent proxy interference
+        # DashScope calls should go direct, not through any proxy
+        env_backup = {}
+        for var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+            if var in os.environ:
+                env_backup[var] = os.environ.pop(var)
 
         try:
-            with httpx.Client(timeout=60.0) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
-                return data["content"][0]["text"]
-        except httpx.TimeoutException:
-            raise LLMError(f"LLM request timed out after 60s (provider={self.provider})")
-        except httpx.HTTPStatusError as e:
-            raise LLMError(f"LLM HTTP error {e.response.status_code}: {e.response.text[:200]}")
-        except (KeyError, IndexError, ValueError) as e:
-            raise LLMError(f"LLM response parse error: {e}")
+            response = litellm.completion(**kwargs)
+            return response["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error("LLM completion error: %s", e)
+            raise LLMError(f"LLM completion failed: {e}")
+        finally:
+            # Restore env vars
+            os.environ.update(env_backup)
 
-    def _complete_openai(self, prompt: str, max_tokens: int) -> str:
-        """Call OpenAI-compatible API."""
-        base = (self.base_url or "https://api.openai.com/v1").rstrip("/")
-        url = f"{base}/chat/completions"
-
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-        }
-
-        try:
-            with httpx.Client(timeout=60.0) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
-                return data["choices"][0]["message"]["content"]
-        except httpx.TimeoutException:
-            raise LLMError(f"LLM request timed out after 60s (provider={self.provider})")
-        except httpx.HTTPStatusError as e:
-            raise LLMError(f"LLM HTTP error {e.response.status_code}: {e.response.text[:200]}")
-        except (KeyError, IndexError, ValueError) as e:
-            raise LLMError(f"LLM response parse error: {e}")
-
-    async def stream(self, messages: list[dict], max_tokens: int = 1024):
+    async def stream(self, messages: list[dict], max_tokens: int = 1024, reasoning: bool = False):
         """
         Stream LLM response chunks as async generator.
 
@@ -127,9 +104,8 @@ class LLMClient:
         Args:
             messages: list of {"role": "user"|"assistant", "content": "..."}
             max_tokens: max tokens in response
+            reasoning: whether to enable reasoning/thinking mode (default False for speed)
         """
-        import litellm
-
         litellm_model = f"{self.provider}/{self.model}"
         kwargs = {
             "model": litellm_model,
@@ -140,6 +116,15 @@ class LLMClient:
         }
         if self.base_url:
             kwargs["api_base"] = self.base_url
+        # Disable thinking/reasoning mode for speed when not needed (DashScope qwen models)
+        if not reasoning:
+            kwargs["extra_body"] = {"think": False}
+
+        # Clear proxy env vars for this request to prevent proxy interference
+        env_backup = {}
+        for var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+            if var in os.environ:
+                env_backup[var] = os.environ.pop(var)
 
         try:
             stream_resp = await litellm.acompletion(**kwargs)
@@ -156,3 +141,5 @@ class LLMClient:
         except Exception as e:
             logger.error("LLM stream error: %s", e)
             yield {"error": str(e), "finish": "stop"}
+        finally:
+            os.environ.update(env_backup)

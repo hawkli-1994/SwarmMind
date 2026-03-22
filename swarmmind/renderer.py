@@ -8,7 +8,7 @@ from swarmmind.shared_memory import SharedMemory
 logger = logging.getLogger(__name__)
 
 
-def render_status(goal: str) -> str:
+def render_status(goal: str, reasoning: bool = False) -> str:
     """
     LLM Status Renderer: given a goal, read all relevant shared context
     and generate a human-readable prose summary.
@@ -54,7 +54,7 @@ Just natural language that a human supervisor can quickly read to understand sta
 
     try:
         client = LLMClient()
-        summary = client.complete(prompt, max_tokens=1024)
+        summary = client.complete(prompt, max_tokens=1024, reasoning=reasoning)
         return summary.strip()
     except LLMError as e:
         logger.error("LLM Status Renderer error: %s", e)
@@ -88,7 +88,7 @@ Respond with ONLY the title. No quotes, no explanation. Just the title itself.""
 
     try:
         client = LLMClient()
-        title = client.complete(prompt, max_tokens=32)
+        title = client.complete(prompt, max_tokens=32, reasoning=False)
         title = title.strip()
         if len(title) > 50:
             title = title[:47] + "..."

@@ -114,6 +114,7 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(conversationId);
+  const [enableReasoning, setEnableReasoning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -170,7 +171,7 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
     // If we have a conversationId (or are using regular chat), handle differently
     if (currentConversationId) {
       // Use conversation API (non-streaming)
-      await handleConversationSubmit(text, userMessage.id);
+      await handleConversationSubmit(text, userMessage.id, enableReasoning);
     } else {
       // Create a new conversation first
       try {
@@ -184,7 +185,7 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
           setCurrentConversationId(newConv.id);
           onConversationCreated?.(newConv.id);
           // Now use conversation API
-          await handleConversationSubmitWithId(text, newConv.id, userMessage.id);
+          await handleConversationSubmitWithId(text, newConv.id, userMessage.id, enableReasoning);
         } else {
           throw new Error(`HTTP ${createRes.status}`);
         }
@@ -196,14 +197,14 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
         ]);
       }
     }
-  }, [input, isLoading, currentConversationId]);
+  }, [input, isLoading, currentConversationId, enableReasoning]);
 
-  const handleConversationSubmit = async (text: string, userMsgId: string) => {
+  const handleConversationSubmit = async (text: string, userMsgId: string, reasoning: boolean) => {
     try {
       const res = await fetch(`/conversations/${currentConversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ content: text, reasoning }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -228,12 +229,12 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
     }
   };
 
-  const handleConversationSubmitWithId = async (text: string, convId: string, userMsgId: string) => {
+  const handleConversationSubmitWithId = async (text: string, convId: string, userMsgId: string, reasoning: boolean) => {
     try {
       const res = await fetch(`/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ content: text, reasoning }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -367,7 +368,7 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
             ) : (
               <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm bg-muted text-foreground">
                 {/* Thinking section - collapsible */}
-                {message.thinking && (
+                {enableReasoning && message.thinking && (
                   <details className="mb-2">
                     <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none">
                       Thinking...
@@ -407,7 +408,16 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
             rows={2}
             disabled={isLoading}
           />
-          <div className="flex items-center justify-end p-3 border-t border-neutral-800">
+          <div className="flex items-center justify-between p-3 border-t border-neutral-800">
+            <label className="flex items-center gap-2 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
+              <input
+                type="checkbox"
+                checked={enableReasoning}
+                onChange={(e) => setEnableReasoning(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-white focus:ring-neutral-500 cursor-pointer"
+              />
+              Enable reasoning
+            </label>
             <button
               type="button"
               onClick={() => handleSubmit()}

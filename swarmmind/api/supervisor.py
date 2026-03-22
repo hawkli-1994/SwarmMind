@@ -1,5 +1,6 @@
 """Supervisor REST API — FastAPI server for human oversight."""
 
+import asyncio
 import logging
 import os
 import threading
@@ -60,6 +61,7 @@ class StrategyChangeApproveRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(..., max_length=2000)
+    reasoning: bool = False  # Whether to enable LLM reasoning/thinking mode
     history: list[dict] = Field(default=[], exclude=True)  # reserved for Phase 2
 
 
@@ -398,7 +400,7 @@ def send_message(conversation_id: str, body: SendMessageRequest):
     if routed_agent_id is None:
         # No agent matched — fall back to direct LLM (no proposal created)
         try:
-            ai_response = render_status(body.content)
+            ai_response = render_status(body.content, reasoning=body.reasoning)
         except Exception as e:
             logger.error("render_status error: %s", e)
             ai_response = f"I received your message: {body.content}. How can I help you?"
@@ -483,13 +485,14 @@ def delete_conversation(conversation_id: str):
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
+async def chat(request: ChatRequest):
     """
     Chat endpoint — Phase 1 uses render_status() for stateless LLM queries.
     Does not create proposals or invoke agents (reserved for Phase 2).
     """
     try:
-        summary = render_status(request.message)
+        # Run blocking LLM call in thread pool to avoid blocking the event loop
+        summary = await asyncio.to_thread(render_status, request.message, request.reasoning)
         return ChatResponse(response=summary)
     except Exception as e:
         logger.error("Chat error: %s", e)
@@ -508,7 +511,7 @@ async def _stream_chat(request: ChatRequest):
         return
 
     try:
-        async for chunk in client.stream(messages, max_tokens=1024):
+        async for chunk in client.stream(messages, max_tokens=1024, reasoning=request.reasoning):
             if "error" in chunk:
                 yield f"3:{json.dumps(chunk['error'])}\n"
                 return

@@ -145,6 +145,7 @@ class MessageListResponse(BaseModel):
 
 class SendMessageRequest(BaseModel):
     content: str
+    reasoning: bool = False  # Whether to enable LLM reasoning/thinking mode
 
 
 class SendMessageResponse(BaseModel):
