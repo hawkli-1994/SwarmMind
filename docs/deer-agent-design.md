@@ -2,7 +2,7 @@
 
 > 状态：✅ 已实现
 > 实现文件：`swarmmind/agents/general_agent.py`
-> 基于 DeerFlow v2.0 (`bytedance/deer-flow`)
+> 基于 DeerFlow（`bytedance/deer-flow`）
 
 ## 一、目标
 
@@ -36,7 +36,7 @@ Human Supervisor
        ▼
 ┌──────────────────┐     ┌─────────────────────────────────────────┐
 │   Supervisor UI  │     │          Context Broker                  │
-│   (shadcn/ui)    │ ←── │  routes goals → agents                   │
+│   (shadcn/ui)    │ ←── │  derive_situation_tag() → route_to_agent│
 └──────────────────┘     └──────────┬──────────────────────────────┘
                                     │
         ┌───────────────────────────┼───────────────────────────┐
@@ -60,8 +60,6 @@ Human Supervisor
                                                       │  │ + Skills      │  │
                                                       │  └───────────────┘  │
                                                       └──────────────────────┘
-                                    │                           │
-                                    └───────────────────────────┘
                                               │
                                     ┌─────────▼─────────┐
                                     │   Shared Memory   │
@@ -72,9 +70,18 @@ Human Supervisor
 ### 关键设计原则
 
 1. **GeneralAgent 是 SwarmMind 的 fallback agent**，遵循相同接口（接收 goal → 生成 proposal → 执行）
-2. **DeerFlow 是执行引擎**，DeerFlowClient 以 embeded 模式运行（无 server 进程）
+2. **DeerFlow 是执行引擎**，DeerFlowClient 以 embedded 模式运行（无 server 进程）
 3. **SwarmMind 保持控制**，GeneralAgent 执行结果写入 LayeredMemory，人类可通过 UI 监控
 4. **隔离性好**，DeerFlow 的 LangGraph 依赖不会扩散到整个 SwarmMind
+
+### 实现细节
+
+| 细节 | 值 |
+|------|-----|
+| `domain_tags` | `[]`（GeneralAgent 不读取特定域的内存） |
+| 写入内存的 tags | `["general"]`（goal/tag 结果）、`["general", "tools"]`（工具调用摘要） |
+| 更新 proposal 的 confidence | `0.8`（硬编码） |
+| 继承自 BaseAgent | `_resolve_write_scope()`、`memory`、`_create_rejected_proposal()` |
 
 ---
 
@@ -86,30 +93,39 @@ Human Supervisor
                     ┌─────────────────────┼─────────────────────┐
                     ▼                     ▼                     ▼
             Finance Agent         Code Review Agent         GeneralAgent
-            (关键词匹配)           (关键词匹配)           (fallback: 无匹配)
+            (关键词匹配)           (关键词匹配)           (fallback: unknown→general)
 ```
+
+### derive_situation_tag() 关键词映射
+
+| situation_tag | 触发关键词示例 |
+|--------------|--------------|
+| `finance` | finance, financial, revenue, expense, profit, quarterly, Q1-Q4, fiscal, budget... |
+| `code_review` | code, review, PR, pull request, git, python, bug, refactor... |
+| `unknown` | （无匹配时默认）→ 映射到 `general` |
 
 ### 策略表种子数据
 
-| situation_tag | agent_id |
-|--------------|---------|
-| finance | finance |
-| finance_qa | finance |
-| quarterly_report | finance |
-| revenue_analysis | finance |
-| code_review | code_review |
-| python_review | code_review |
-| pr_review | code_review |
-| **unknown** | **general** |
+| situation_tag | agent_id | 说明 |
+|--------------|---------|------|
+| finance | finance | |
+| finance_qa | finance | |
+| quarterly_report | finance | |
+| revenue_analysis | finance | |
+| code_review | code_review | |
+| python_review | code_review | |
+| pr_review | code_review | |
+| **unknown** | **general** | fallback |
 
 ---
 
 ## 五、配置
 
-### DeerFlow config.yaml（DeerAgent 用）
+### DeerFlow config.yaml
 
 ```yaml
 # DeerFlow 的标准配置，GeneralAgent 直接引用
+# 模型和工具配置取决于实际部署环境，以下为示例
 config_version: 3
 
 models:
@@ -143,27 +159,61 @@ skills:
   container_path: /path/to/deer-flow/skills
 ```
 
-### SwarmMind .env 扩展
+> **注意**：config.yaml 中的模型名称和 API Key 需要与实际 DeerFlow 部署环境匹配。DeepSeek、Claude 等只是示例。
+
+### SwarmMind .env
 
 ```bash
 # DeerFlow 配置路径（指向 DeerFlow 的 config.yaml）
 DEER_FLOW_CONFIG_PATH=/path/to/deer-flow/config.yaml
 
-# DeerFlow skills 目录（可选，Skills 系统）
+# （已定义但当前代码未使用）
 DEER_FLOW_SKILLS_PATH=/path/to/deer-flow/skills
+```
+
+> **注意**：`DEER_FLOW_SKILLS_PATH` 在 `config.py` 中已定义，但 `GeneralAgent` 当前实现中**未使用**。预留用于未来通过 DeerFlow Skills 系统注入 prompt 片段。
+
+### GeneralAgent 初始化参数
+
+```python
+GeneralAgent(
+    deer_flow_config_path: str | None = None,  # 优先用此参数，否则用 DEER_FLOW_CONFIG_PATH
+    default_model: str | None = None,           # 覆盖 DeerFlow config.yaml 中的模型
+    thinking_enabled: bool = True,              # 是否启用思考模式
+)
 ```
 
 ---
 
-## 六、复用策略
+## 六、DeerFlowClient 接口
+
+GeneralAgent 使用 `DeerFlowClient` 的以下接口：
+
+| 方法 | 用途 |
+|------|------|
+| `DeerFlowClient(config_path, model_name, thinking_enabled)` | 构造函数 |
+| `client.stream(goal, thread_id)` | 流式执行目标，返回事件迭代器 |
+
+### 事件类型处理
+
+```python
+# GeneralAgent 中处理的事件类型
+"messages-tuple"  →  data["type"] == "ai"       → 提取最终文本
+                   →  data["type"] == "tool"    → 记录工具调用
+"end"             →  流式结束
+```
+
+---
+
+## 七、复用策略
 
 | DeerFlow 组件 | 复用方式 | 状态 |
 |--------------|---------|------|
-| `DeerFlowClient` | 直接 import，embeded 模式 | ✅ 可行 |
+| `DeerFlowClient` | 直接 import，embedded 模式 | ✅ 可行 |
 | Model factory (`create_chat_model`) | 参考 thinking/reasoning 配置 | ✅ 已在 LLMClient 参考 |
 | Subagent 系统 | 通过 DeerFlowClient 间接使用 | ✅ 可行 |
 | Tools (web search, bash, file I/O) | 通过 DeerFlow 沙盒执行 | ✅ 可行 |
-| Skills system | 通过 DeerFlow 注入 system prompt | ✅ 可行 |
+| Skills system | 预留接口（`DEER_FLOW_SKILLS_PATH`），代码未使用 | ⚠️ 待实现 |
 | Memory system | DeerFlow 内部使用，不影响 LayeredMemory | ✅ 隔离 |
 | LangGraph Agent runtime | DeerFlow 内部隐藏 | ✅ 隔离 |
 | Sandbox isolation | DeerFlow 内部 Docker/Kubernetes | ⚠️ 需要环境支持 |
@@ -172,7 +222,31 @@ DEER_FLOW_SKILLS_PATH=/path/to/deer-flow/skills
 
 ---
 
-## 七、风险与 Mitigation
+## 八、安装说明
+
+```bash
+# 1. DeerFlow 需要独立安装（不是 uv optional dependency）
+#    参见 DeerFlow 官方仓库：https://github.com/bytedance/deer-flow
+#    典型步骤（可能因版本而异）：
+cd /path/to/deer-flow
+pip install -e .
+
+# 2. 在 SwarmMind .env 中配置路径
+DEER_FLOW_CONFIG_PATH=/path/to/deer-flow/config.yaml
+
+# 3. 确保 DeerFlow 的依赖（LangGraph 等）已安装
+#    如果 DeerFlow 未安装，GeneralAgent 会抛出清晰的错误：
+#    "DeerFlow is not installed. Install it with ..."
+
+# 4. 验证导入（可选）
+python -c "from deerflow.client import DeerFlowClient; print('DeerFlow OK')"
+```
+
+> ⚠️ **当前状态**：`pyproject.toml` 中**没有** `deerflow` 可选依赖。所有 DeerFlow 相关的导入都通过 `try/except ImportError` 捕获，实现优雅降级（DeerFlow 未安装时 GeneralAgent 报错，但不影响 SwarmMind 其他功能）。
+
+---
+
+## 九、风险与 Mitigation
 
 ### 风险 1：DeerFlow 依赖污染
 
@@ -201,16 +275,10 @@ LangGraph、kubernetes 等依赖会随 DeerFlow 引入。
 - 生产环境用 `AioSandboxProvider` + Docker
 - 评估是否需要沙盒；如不需要（纯研究任务），可用 Local 模式
 
----
+### 风险 4：`DEER_FLOW_SKILLS_PATH` 未实现
 
-## 八、安装说明
+配置已定义但代码未使用。
 
-```bash
-# 1. 安装 DeerFlow（需要 Python>=3.12）
-cd /path/to/deer-flow/backend/packages/harness
-pip install -e .
-
-# 2. 在 SwarmMind .env 中配置路径
-DEER_FLOW_CONFIG_PATH=/path/to/deer-flow/backend/config.yaml
-DEER_FLOW_SKILLS_PATH=/path/to/deer-flow/backend/data/skills
-```
+**Mitigation：**
+- 当前不影响功能，只是预留接口
+- 如需使用，需在 GeneralAgent 中添加对 `DEER_FLOW_SKILLS_PATH` 的读取和应用逻辑
