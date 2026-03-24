@@ -4,8 +4,11 @@ Handles any goal that doesn't match a specialized agent.
 Uses DeerFlow's full tool ecosystem (web search, file I/O, bash, etc.)
 """
 
+from __future__ import annotations
+
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from swarmmind.agents.base import BaseAgent
 
@@ -18,6 +21,9 @@ from swarmmind.config import DEER_FLOW_CONFIG_PATH
 from swarmmind.context_broker import update_proposal_result
 from swarmmind.db import get_connection
 from swarmmind.models import ActionProposal, MemoryContext
+
+if TYPE_CHECKING:
+    from deerflow.client import DeerFlowClient
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +65,16 @@ class GeneralAgent(BaseAgent):
                 "Install it with `uv sync --extra deerflow` to enable GeneralAgent."
             )
 
-        self._client = DeerFlowClient(
+        self._client: "DeerFlowClient" = DeerFlowClient(
             config_path=self._config_path,
             model_name=default_model,
             thinking_enabled=thinking_enabled,
         )
+
+    @property
+    def domain_tags(self) -> list[str]:
+        """GeneralAgent reads no specific domain tags (catch-all fallback)."""
+        return []
 
     def act(
         self,
