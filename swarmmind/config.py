@@ -37,3 +37,8 @@ MEMORY_MAX_TTL_SECONDS = 604800       # 7 days
 
 # L4 USER_SOUL write authorization — only these agents may write to L4
 SOUL_WRITER_AGENT_IDS = {"soul_writer"}
+
+# DeerFlow configuration paths
+# Default to None — DeerFlow must be installed and configured via env vars
+DEER_FLOW_CONFIG_PATH = os.environ.get("DEER_FLOW_CONFIG_PATH", None)
+DEER_FLOW_SKILLS_PATH = os.environ.get("DEER_FLOW_SKILLS_PATH", None)

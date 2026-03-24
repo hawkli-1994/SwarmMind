@@ -62,12 +62,12 @@ class TestDispatch:
         assert result.agent_id == "code_review"
         assert result.status == "pending"
 
-    def test_dispatch_unknown_goal_returns_error_proposal(self):
+    def test_dispatch_unknown_goal_routes_to_general_agent(self):
         from swarmmind.context_broker import dispatch
 
         result = dispatch("Make me a sandwich")
-        assert result.agent_id == "unknown"
-        assert result.status == "no_route"
+        assert result.agent_id == "general"
+        assert result.status == "pending"
 
 
 class TestDispatchMemoryContext:

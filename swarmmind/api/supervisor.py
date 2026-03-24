@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT
+from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT, DEER_FLOW_CONFIG_PATH
 from swarmmind.context_broker import (
     derive_situation_tag,
     dispatch,
@@ -46,6 +46,7 @@ from swarmmind.renderer import generate_conversation_title, render_status
 from swarmmind.llm import LLMClient, LLMError
 from swarmmind.agents.finance import FinanceAgent
 from swarmmind.agents.code_review import CodeReviewAgent
+from swarmmind.agents.general_agent import GeneralAgent
 
 logger = logging.getLogger(__name__)
 
@@ -93,20 +94,22 @@ def startup():
     init_db()
     seed_default_agents()
     logger.info("SwarmMind API started on %s:%s", API_HOST, API_PORT)
-    # Start timeout scanner in background
-    threading.Thread(target=_timeout_scanner, daemon=True).start()
+    # Start cleanup scanner (proposals + expired memory) in background
+    threading.Thread(target=_cleanup_scanner, daemon=True).start()
 
 
 # ---- Timeout scanner ----
 
-def _timeout_scanner():
-    """Background thread: find proposals pending > 5 minutes, auto-reject."""
+def _cleanup_scanner():
+    """Background thread: clean up stale proposals and expired memory entries."""
     while True:
         time.sleep(30)
         try:
             conn = get_connection()
             try:
                 cursor = conn.cursor()
+
+                # 1. Auto-reject proposals pending beyond ACTION_TIMEOUT_SECONDS
                 cursor.execute(
                     f"""
                     SELECT id, agent_id, description, created_at
@@ -128,10 +131,24 @@ def _timeout_scanner():
                     record_supervisor_decision(row["id"], SupervisorDecision.TIMEOUT)
                 if stale:
                     conn.commit()
+
+                # 2. Delete expired memory entries (TTL elapsed)
+                cursor.execute(
+                    """
+                    DELETE FROM memory_entries
+                    WHERE ttl IS NOT NULL
+                    AND (strftime('%s', 'now') - strftime('%s', created_at)) > ttl
+                    """,
+                )
+                deleted_memory = cursor.rowcount
+                if deleted_memory > 0:
+                    logger.info("Cleaned up %d expired memory entries.", deleted_memory)
+                    conn.commit()
+
             finally:
                 conn.close()
         except Exception as e:
-            logger.error("Timeout scanner error: %s", e)
+            logger.error("Cleanup scanner error: %s", e)
 
 
 # ---- Supervisor endpoints ----
@@ -410,16 +427,41 @@ def send_message(conversation_id: str, body: SendMessageRequest):
     routed_agent_id = route_to_agent(situation_tag)
 
     if routed_agent_id is None:
-        # No agent matched — fall back to direct LLM (no proposal created)
+        # No specialized agent matched — use GeneralAgent via dispatch (consistent flow)
         try:
-            enhanced_content = (
-                f"[respond_in_language] Detect the language of the text below "
-                f"and respond in that same language.\nText: {body.content}\n"
+            general_agent = GeneralAgent(
+                deer_flow_config_path=DEER_FLOW_CONFIG_PATH,
             )
-            ai_response = render_status(enhanced_content, reasoning=body.reasoning)
+            # Use dispatch() with override to get a proper pending proposal routed to GeneralAgent
+            dispatch_result = dispatch(
+                body.content,
+                user_id="supervisor",
+                session_id=conversation_id,
+                override_situation_tag="general",
+            )
+            proposal_id = dispatch_result.action_proposal_id
+
+            # Auto-approve the proposal (supervisor decision)
+            conn2 = get_connection()
+            try:
+                cursor2 = conn2.cursor()
+                cursor2.execute(
+                    "UPDATE action_proposals SET status = ? WHERE id = ?",
+                    (ProposalStatus.APPROVED.value, proposal_id),
+                )
+                conn2.commit()
+            finally:
+                conn2.close()
+            record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
+
+            # Execute with GeneralAgent
+            completed_proposal = general_agent.act(
+                body.content, proposal_id, ctx=memory_ctx
+            )
+            ai_response = completed_proposal.description
         except Exception as e:
-            logger.error("render_status error: %s", e)
-            ai_response = f"I received your message: {body.content}. How can I help you?"
+            logger.error("GeneralAgent error: %s", e)
+            ai_response = f"I attempted to process your request using the general agent but encountered an error: {e}"
     else:
         # Agent matched — full dispatch, auto-approve, and execute
         dispatch_result = dispatch(
@@ -452,7 +494,8 @@ def send_message(conversation_id: str, body: SendMessageRequest):
             elif agent_id == "code_review":
                 agent = CodeReviewAgent()
             else:
-                raise ValueError(f"Unknown agent_id: {agent_id}")
+                # Fallback: use GeneralAgent (DeerFlow)
+                agent = GeneralAgent(deer_flow_config_path=DEER_FLOW_CONFIG_PATH)
 
             completed_proposal = agent.act(body.content, proposal_id, ctx=memory_ctx)
             ai_response = completed_proposal.description

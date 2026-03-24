@@ -72,7 +72,8 @@ swarmmind/
 │   ├── agents/
 │   │   ├── base.py         ✅ BaseAgent（使用 LLMClient）
 │   │   ├── finance.py      ✅ FinanceAgent
-│   │   └── code_review.py  ✅ CodeReviewAgent
+│   │   ├── code_review.py  ✅ CodeReviewAgent
+│   │   └── general_agent.py ✅ GeneralAgent（DeerFlow 驱动，处理未分类任务）
 │   └── api/
 │       └── supervisor.py   ✅ FastAPI supervisor REST API
 ├── ui/                    ✅ Supervisor web UI
@@ -114,6 +115,12 @@ swarmmind/
 - **Last-write-wins** — shared memory conflict resolution
 - **Logging only** — no strict LLM response validation
 - **SQLite** — Phase 1 storage; swap-ready via abstraction
+
+## Coding Rules
+
+- **❌ 禁止硬编码个人路径** — 任何路径必须通过环境变量或配置传递，禁止在代码中写死 `/home/xxx`、`/Users/xxx` 等个人目录路径
+- **✅ 路径必须可配置** — 使用 `os.environ.get("PATH_ENV_VAR", None)` 或 `config.py` 中的配置项
+- **✅ 可选依赖** — 非核心功能（如 DeerFlow）必须作为 optional dependency，优雅降级
 
 ## LLM Configuration
 
@@ -184,7 +191,7 @@ cd ui && pnpm install && pnpm run dev
 |----------------|-----------|
 | "finance", "financial", "Q3", "quarterly", "revenue" | Finance Agent |
 | "code", "review", "PR", "git", "python", "bug" | Code Review Agent |
-| (no match) | Returns `no_route` status |
+| (no match) | **GeneralAgent** (DeerFlow-powered, fallback for all unclassified goals) |
 
 ## Error Handling (Phase 1)
 

@@ -234,6 +234,13 @@ def seed_default_agents() -> None:
                 "Always respond with a valid JSON action proposal.",
             ),
             (
+                "general",
+                "general",
+                "Default general-purpose agent powered by DeerFlow. "
+                "Handles any goal that doesn't match a specialized agent. "
+                "Uses DeerFlow's full tool ecosystem including web search, file I/O, and bash.",
+            ),
+            (
                 "unknown",
                 "unknown",
                 "Placeholder agent for unmatched routing situations.",
@@ -255,6 +262,7 @@ def seed_default_agents() -> None:
             ("code_review", "code_review"),   # domain-level fallback
             ("python_review", "code_review"),
             ("pr_review", "code_review"),
+            ("unknown", "general"),           # fallback for unclassified goals
         ]
 
         for situation_tag, agent_id in strategies:

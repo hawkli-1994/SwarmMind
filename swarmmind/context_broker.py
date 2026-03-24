@@ -158,12 +158,13 @@ def dispatch(
     project_id: str | None = None,
     team_id: str | None = None,
     session_id: str | None = None,
+    override_situation_tag: str | None = None,
 ) -> DispatchResponse:
     """
     Main dispatch entry point.
 
     1. Build MemoryContext from scope parameters
-    2. Derive situation_tag from goal (keyword extraction)
+    2. Derive situation_tag from goal (keyword extraction), or use override_situation_tag if provided
     3. Look up strategy_table for routing
     4. Log to event_log
     5. Return action_proposal_id for supervisor review + MemoryContext
@@ -174,7 +175,7 @@ def dispatch(
         team_id=team_id,
         session_id=session_id,
     )
-    situation_tag = derive_situation_tag(goal)
+    situation_tag = override_situation_tag or derive_situation_tag(goal)
     agent_id = route_to_agent(situation_tag)
 
     if agent_id is None:

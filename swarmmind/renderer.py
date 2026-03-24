@@ -3,7 +3,8 @@
 import logging
 
 from swarmmind.llm import LLMClient, LLMError
-from swarmmind.shared_memory import SharedMemory
+from swarmmind.layered_memory import LayeredMemory
+from swarmmind.models import MemoryContext
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +17,18 @@ def render_status(goal: str, reasoning: bool = False) -> str:
     Phase 1: returns prose summary only.
     Phase 2: LLM decides format (prose / table / Gantt).
     """
-    # Read all shared memory for context
-    memory = SharedMemory(agent_id="status_renderer")
-    all_entries = memory.read_all()
+    # Read all layered memory entries across all scopes
+    memory = LayeredMemory(agent_id="status_renderer")
+    # Use a default user context to access all layers
+    default_ctx = MemoryContext(user_id="default_user")
+    all_entries = memory.read_all(ctx=default_ctx)
 
     # Build context string for LLM
     if all_entries:
-        context_lines = [
-            f"[{entry['key']}] ({entry.get('domain_tags', 'unknown')}): {entry['value']}"
-            for entry in all_entries
-        ]
+        context_lines = []
+        for entry in all_entries:
+            tag_str = ",".join(entry.tags) if entry.tags else "unknown"
+            context_lines.append(f"[{entry.key}] ({tag_str}): {entry.value}")
         context_block = "\n".join(context_lines)
     else:
         context_block = "(No shared context yet. The team has not accumulated any memory.)"
