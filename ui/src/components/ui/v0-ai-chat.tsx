@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
+import { Send, Upload, FolderOpen, Calendar } from "lucide-react";
 
 interface V0ChatProps {
   conversationId?: string;
@@ -15,97 +16,30 @@ interface Message {
   thinking?: string;
 }
 
-const EXAMPLE_PROMPTS = [
-  { label: "📊 Q3 Financial Report", prompt: "Generate a Q3 financial summary report" },
-  { label: "🐛 Code Review", prompt: "Review this code for bugs and improvements: [paste code]" },
-  { label: "📝 Write Email", prompt: "Write a professional email to follow up on our meeting" },
-  { label: "💡 Brainstorm", prompt: "Help me brainstorm ideas for a new product feature" },
+const AGENTS = [
+  { name: "CRM Agent", ready: true },
+  { name: "财务 Agent", ready: true },
+  { name: "项目 Agent", ready: true },
+  { name: "交付 Agent", ready: true },
+  { name: "+2 待命", ready: false },
+];
+
+const QUICK_CHIPS = [
+  { label: "Q3 财务报告", icon: "📊", prompt: "Q3 财务报告" },
+  { label: "代码审查", icon: "🔍", prompt: "代码审查" },
+  { label: "撰写邮件", icon: "✉️", prompt: "撰写邮件" },
+  { label: "续费风险", icon: "⚠️", prompt: "客户续费风险分析" },
+  { label: "竞品调研", icon: "🧭", prompt: "深度竞品调研" },
+];
+
+const CAPS = [
+  { icon: "🔗", title: "跨系统调研", desc: "一问打通 CRM、财务与项目，答案带依据" },
+  { icon: "💬", title: "可追问", desc: "不只给结论，支持逐层深挖与上下文继续" },
+  { icon: "🛡️", title: "人类裁决", desc: "关键动作保留审批权，治理边界清晰" },
 ];
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
-}
-
-async function streamChat(
-  message: string,
-  onText: (text: string) => void,
-  onThinking: (thinking: string) => void,
-  onDone: () => void,
-  onError: (err: string) => void
-) {
-  try {
-    const response = await fetch("/chat/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
-    });
-
-    if (!response.ok) {
-      onError(`HTTP ${response.status}`);
-      return;
-    }
-
-    if (!response.body) {
-      onError("No response body");
-      return;
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        // "0:" = text delta, "1:" = thinking delta
-        if (line.startsWith("0:")) {
-          try {
-            const text = JSON.parse(line.substring(2));
-            onText(text);
-          } catch {
-            // ignore parse errors
-          }
-        } else if (line.startsWith("1:")) {
-          try {
-            const thinking = JSON.parse(line.substring(2));
-            onThinking(thinking);
-          } catch {
-            // ignore parse errors
-          }
-        }
-      }
-    }
-
-    // Process remaining buffer
-    if (buffer.trim()) {
-      if (buffer.startsWith("0:")) {
-        try {
-          const text = JSON.parse(buffer.substring(2));
-          onText(text);
-        } catch {
-          // ignore
-        }
-      } else if (buffer.startsWith("1:")) {
-        try {
-          const thinking = JSON.parse(buffer.substring(2));
-          onThinking(thinking);
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    onDone();
-  } catch (err) {
-    onError(err instanceof Error ? err.message : "Unknown error");
-  }
 }
 
 export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
@@ -114,7 +48,7 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(conversationId);
-  const [enableReasoning, setEnableReasoning] = useState(false);
+  const [enableReasoning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -168,12 +102,9 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
     const userMessage: Message = { id: generateId(), role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
 
-    // If we have a conversationId (or are using regular chat), handle differently
     if (currentConversationId) {
-      // Use conversation API (non-streaming)
       await handleConversationSubmit(text, userMessage.id, enableReasoning);
     } else {
-      // Create a new conversation first
       try {
         const createRes = await fetch("/conversations", {
           method: "POST",
@@ -184,7 +115,6 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
           const newConv = await createRes.json();
           setCurrentConversationId(newConv.id);
           onConversationCreated?.(newConv.id);
-          // Now use conversation API
           await handleConversationSubmitWithId(text, newConv.id, userMessage.id, enableReasoning);
         } else {
           throw new Error(`HTTP ${createRes.status}`);
@@ -199,7 +129,7 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
     }
   }, [input, isLoading, currentConversationId, enableReasoning]);
 
-  const handleConversationSubmit = async (text: string, userMsgId: string, reasoning: boolean) => {
+  const handleConversationSubmit = async (text: string, _userMsgId: string, reasoning: boolean) => {
     try {
       const res = await fetch(`/conversations/${currentConversationId}/messages`, {
         method: "POST",
@@ -229,7 +159,7 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
     }
   };
 
-  const handleConversationSubmitWithId = async (text: string, convId: string, userMsgId: string, reasoning: boolean) => {
+  const handleConversationSubmitWithId = async (text: string, convId: string, _userMsgId: string, reasoning: boolean) => {
     try {
       const res = await fetch(`/conversations/${convId}/messages`, {
         method: "POST",
@@ -259,51 +189,6 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
     }
   };
 
-  const handleStreamingSubmit = async (text: string, userMsgId: string) => {
-    const assistantId = generateId();
-    let assistantContent = "";
-    let assistantThinking = "";
-
-    await streamChat(
-      text,
-      (text) => {
-        assistantContent += text;
-        setMessages((prev) => {
-          const exists = prev.find((m) => m.id === assistantId);
-          if (exists) {
-            return prev.map((m) =>
-              m.id === assistantId ? { ...m, content: assistantContent } : m
-            );
-          }
-          return [...prev, { id: assistantId, role: "assistant", content: text }];
-        });
-      },
-      (thinking) => {
-        assistantThinking += thinking;
-        setMessages((prev) => {
-          const exists = prev.find((m) => m.id === assistantId);
-          if (exists) {
-            return prev.map((m) =>
-              m.id === assistantId ? { ...m, thinking: assistantThinking } : m
-            );
-          }
-          return [...prev, { id: assistantId, role: "assistant", content: "", thinking }];
-        });
-      },
-      () => {
-        setIsLoading(false);
-      },
-      (err) => {
-        setError(err);
-        setIsLoading(false);
-        setMessages((prev) => [
-          ...prev,
-          { id: generateId(), role: "assistant", content: `Error: ${err}` },
-        ]);
-      }
-    );
-  };
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -314,119 +199,169 @@ export function V0Chat({ conversationId, onConversationCreated }: V0ChatProps) {
     [handleSubmit]
   );
 
+  const resizeTextarea = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  };
+
+  const fillInput = (text: string) => {
+    setInput(text);
+    inputRef.current?.focus();
+    if (inputRef.current) resizeTextarea(inputRef.current);
+  };
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="text-center py-6 px-4 border-b bg-muted/30">
-        <h1 className="text-2xl font-bold text-foreground">Ask me anything</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          I&apos;ll help coordinate the agent team to get it done
-        </p>
-      </div>
-
-      {/* Example prompts */}
-      {messages.length === 0 && !isLoading && (
-        <div className="px-4 pt-6 pb-2">
-          <p className="text-xs text-muted-foreground mb-3 text-center">
-            Try one of these:
-          </p>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {EXAMPLE_PROMPTS.map((example, i) => (
-              <button
-                key={i}
-                onClick={() => handleSubmit(example.prompt)}
-                className="px-3 py-2 text-xs rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors border"
-              >
-                {example.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Chat thread */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
-        {messages.length === 0 && !isLoading && (
-          <div className="text-center text-muted-foreground text-sm py-8">
-            Or type your question below
-          </div>
-        )}
-
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={
-              message.role === "user"
-                ? "flex justify-end"
-                : "flex justify-start"
-            }
-          >
-            {message.role === "user" ? (
-              <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap bg-primary text-primary-foreground">
-                {message.content}
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col items-center justify-center min-h-full px-6 py-8">
+          {messages.length === 0 && !isLoading ? (
+            <div className="w-full max-w-[520px] animate-[up_0.35s_ease_both]">
+              {/* Hero Eyebrow */}
+              <div className="inline-flex items-center gap-1.5 border border-border rounded-full px-2.5 py-1 mb-5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-[11px] font-mono text-muted-foreground tracking-wider">6 个 Agent 就绪</span>
               </div>
-            ) : (
-              <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm bg-muted text-foreground">
-                {/* Thinking section - collapsible */}
-                {enableReasoning && message.thinking && (
-                  <details className="mb-2">
-                    <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none">
-                      Thinking...
-                    </summary>
-                    <div className="mt-2 text-xs text-muted-foreground/70 whitespace-pre-wrap font-mono border-l-2 border-muted-foreground/20 pl-3">
-                      {message.thinking}
-                    </div>
-                  </details>
-                )}
-                {/* Main content - rendered as markdown */}
-                {message.content && (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+
+              {/* Title */}
+              <h1 className="text-[30px] font-semibold text-foreground tracking-tight leading-tight mb-2.5">
+                向 Agent 团队提问
+              </h1>
+              <p className="text-[13.5px] text-muted-foreground leading-relaxed mb-7 font-light">
+                描述目标或问题，系统自动协调跨系统调研、聚合依据，<br />返回可追问的结构化答案。
+              </p>
+
+              {/* Agent Tags */}
+              <div className="flex flex-wrap gap-1.5 justify-center mb-7">
+                {AGENTS.map((agent) => (
+                  <div
+                    key={agent.name}
+                    className="flex items-center gap-1.5 border border-border rounded-full px-2.5 py-1 text-[10.5px] font-mono text-muted-foreground hover:border-secondary hover:text-foreground transition-colors cursor-default"
+                  >
+                    <span className={`w-1 h-1 rounded-full ${agent.ready ? "bg-green-500" : "bg-muted-foreground"}`} />
+                    {agent.name}
                   </div>
-                )}
-                {!message.content && !message.thinking && (
-                  <span className="animate-pulse">Thinking...</span>
-                )}
+                ))}
               </div>
-            )}
-          </div>
-        ))}
 
-        <div ref={messagesEndRef} />
+              {/* Quick Chips Label */}
+              <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground/50 mb-2.5 text-center">快速开始</p>
+
+              {/* Quick Chips */}
+              <div className="flex flex-wrap gap-2 justify-center mb-7">
+                {QUICK_CHIPS.map((chip) => (
+                  <button
+                    key={chip.label}
+                    onClick={() => fillInput(chip.prompt)}
+                    className="inline-flex items-center gap-1.5 border border-border bg-transparent rounded-md px-3 py-1.5 text-[12.5px] text-muted-foreground hover:bg-secondary hover:border-secondary hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    <span>{chip.icon}</span>
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Capability Cards */}
+              <div className="grid grid-cols-3 gap-2 w-full mb-9 animate-[up_0.35s_0.08s_ease_both]">
+                {CAPS.map((cap) => (
+                  <div
+                    key={cap.title}
+                    className="border border-border rounded-md p-3.5 text-left bg-card hover:bg-secondary hover:border-secondary transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-[13px]">{cap.icon}</span>
+                      <span className="text-[12.5px] font-medium text-foreground">{cap.title}</span>
+                    </div>
+                    <p className="text-[11.5px] text-muted-foreground leading-relaxed">{cap.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* Messages Thread */
+            <div className="w-full max-w-[720px] py-4 space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={message.role === "user" ? "flex justify-end" : "flex justify-start"}
+                >
+                  {message.role === "user" ? (
+                    <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap bg-primary text-primary-foreground">
+                      {message.content}
+                    </div>
+                  ) : (
+                    <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm bg-muted text-foreground">
+                      {enableReasoning && message.thinking && (
+                        <details className="mb-2">
+                          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none">
+                            Thinking...
+                          </summary>
+                          <div className="mt-2 text-xs text-muted-foreground/70 whitespace-pre-wrap font-mono border-l-2 border-muted-foreground/20 pl-3">
+                            {message.thinking}
+                          </div>
+                        </details>
+                      )}
+                      {message.content && (
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+                      )}
+                      {!message.content && !message.thinking && (
+                        <span className="animate-pulse">Thinking...</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Composer input */}
-      <div className="px-4 pb-4">
-        <div className="relative bg-neutral-900 rounded-xl border border-neutral-800">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question or describe what you need..."
-            className="w-full px-4 py-3 resize-none bg-transparent border-none text-white text-sm placeholder:text-neutral-500 focus:outline-none min-h-[60px] max-h-[120px]"
-            rows={2}
-            disabled={isLoading}
-          />
-          <div className="flex items-center justify-between p-3 border-t border-neutral-800">
-            <label className="flex items-center gap-2 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
-              <input
-                type="checkbox"
-                checked={enableReasoning}
-                onChange={(e) => setEnableReasoning(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-white focus:ring-neutral-500 cursor-pointer"
-              />
-              Enable reasoning
-            </label>
-            <button
-              type="button"
-              onClick={() => handleSubmit()}
-              disabled={!input.trim() || isLoading}
-              className="px-4 py-1.5 rounded-lg text-sm bg-white text-black hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Sending..." : "Send"}
-            </button>
+      {/* Input Area - Fixed at bottom */}
+      <div className="flex-shrink-0 px-5 pb-4">
+        <div className="max-w-[720px] mx-auto">
+          <div className="border border-border rounded-lg bg-card transition-colors focus-within:border-muted-foreground/50 focus-within:shadow-[0_0_0_3px_rgba(255,255,255,0.04)] overflow-hidden">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                resizeTextarea(e.target);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="描述你的目标，或直接提问…"
+              className="w-full px-4 py-3.5 pb-2 bg-transparent border-none text-[13.5px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none min-h-[56px] max-h-[160px] leading-relaxed font-light"
+              rows={2}
+              disabled={isLoading}
+            />
+            <div className="flex items-center px-3 py-2 gap-1 border-t border-border">
+              <button className="flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border rounded px-2 py-1 transition-colors">
+                <Upload className="w-3 h-3" />
+                上传文件
+              </button>
+              <button className="flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border rounded px-2 py-1 transition-colors">
+                <FolderOpen className="w-3 h-3" />
+                关联项目
+              </button>
+              <button className="flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border rounded px-2 py-1 transition-colors">
+                <Calendar className="w-3 h-3" />
+                定时执行
+              </button>
+              <button
+                onClick={() => handleSubmit()}
+                disabled={!input.trim() || isLoading}
+                className="ml-auto flex items-center gap-1.5 bg-primary text-primary-foreground hover:opacity-85 rounded px-3.5 py-1.5 text-[12.5px] font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                发送
+                <Send className="w-3 h-3" />
+              </button>
+            </div>
           </div>
+          <p className="text-center mt-2 text-[10px] font-mono text-muted-foreground/40 tracking-wider">
+            <kbd className="font-mono text-[10px] bg-secondary border border-border rounded px-1.5 text-muted-foreground/60">Enter</kbd> 发送 &nbsp;·&nbsp; <kbd className="font-mono text-[10px] bg-secondary border border-border rounded px-1.5 text-muted-foreground/60">Shift+Enter</kbd> 换行 &nbsp;·&nbsp; <kbd className="font-mono text-[10px] bg-secondary border border-border rounded px-1.5 text-muted-foreground/60">⌘K</kbd> 快速指令
+          </p>
         </div>
       </div>
 

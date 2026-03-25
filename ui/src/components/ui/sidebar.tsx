@@ -12,40 +12,49 @@ import {
   Plus,
   ChevronDown,
   Menu,
+  Sparkles,
+  Clock,
+  Compass,
+  Home,
 } from "lucide-react";
 
 export type SidebarView = "tasks" | "projects" | "search" | "agents" | "library";
 
 export const VIEW_LABELS: Record<SidebarView, string> = {
-  tasks: "New Task",
-  projects: "Projects",
-  search: "Search",
-  agents: "Agents",
-  library: "Library",
+  tasks: "新建任务",
+  projects: "项目",
+  search: "搜索",
+  agents: "Agent 团队",
+  library: "知识库",
 };
 
-interface Conversation {
-  id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-}
+const RECENT_ITEMS = [
+  { label: "Q3 财务异常分析报告", time: "1h" },
+  { label: "客户续费风险评估", time: "3h" },
+  { label: "项目交付延期根因分析", time: "昨天" },
+  { label: "本月成本异常溯源", time: "昨天" },
+  { label: "销售漏斗转化分析", time: "周一" },
+  { label: "竞品功能对比调研", time: "周一" },
+];
 
 interface SidebarProps {
   activeView: SidebarView;
   onViewChange: (view: SidebarView) => void;
   pageTitle?: string;
-  onConversationSelect?: (conversationId: string) => void;
-  activeConversationId?: string;
-  conversationRefreshTrigger?: number;
 }
 
-const navItems: { value: SidebarView; label: string; icon: React.ReactNode }[] = [
-  { value: "tasks", label: "New Task", icon: <Plus className="w-5 h-5" /> },
-  { value: "projects", label: "Projects", icon: <FolderKanban className="w-5 h-5" /> },
-  { value: "search", label: "Search", icon: <Search className="w-5 h-5" /> },
-  { value: "agents", label: "Agents", icon: <Bot className="w-5 h-5" /> },
-  { value: "library", label: "Library", icon: <Library className="w-5 h-5" /> },
+const navItems: { value: SidebarView; label: string; icon: React.ReactNode; badge?: string }[] = [
+  { value: "tasks", label: "工作台", icon: <Home className="w-4 h-4" /> },
+  { value: "projects", label: "项目", icon: <FolderKanban className="w-4 h-4" />, badge: "3" },
+  { value: "search", label: "搜索", icon: <Search className="w-4 h-4" /> },
+  { value: "agents", label: "Agent 团队", icon: <Bot className="w-4 h-4" /> },
+  { value: "library", label: "知识库", icon: <Library className="w-4 h-4" /> },
+];
+
+const featureItems: { label: string; icon: React.ReactNode; badge: string; highlight?: boolean }[] = [
+  { label: "技能中心", icon: <Sparkles className="w-4 h-4" />, badge: "12", highlight: true },
+  { label: "定时任务", icon: <Clock className="w-4 h-4" />, badge: "2", highlight: true },
+  { label: "深度调研", icon: <Compass className="w-4 h-4" />, badge: "新", highlight: true },
 ];
 
 const XIcon = () => (
@@ -62,152 +71,122 @@ const XIcon = () => (
   </motion.svg>
 );
 
-function CollapsibleSection({
-  title,
-  children,
-  defaultOpen = false,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = React.useState(defaultOpen);
+const SwarmLogo = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 13 13" fill="none">
+    <path d="M6.5 1L11.5 4v5L6.5 12 1.5 9V4L6.5 1Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+    <circle cx="6.5" cy="6.5" r="1.5" fill="currentColor"/>
+  </svg>
+);
 
-  return (
-    <div className="mb-2">
-      <button
-        className="w-full flex items-center justify-between py-2 px-3 rounded-lg hover:bg-neutral-800 transition-colors"
-        onClick={() => setOpen(!open)}
-      >
-        <span className="text-sm font-medium text-neutral-300">{title}</span>
-        <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDown className="w-4 h-4 text-neutral-500" />
-        </motion.div>
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="pl-3 pr-1 py-1">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-export function Sidebar({ activeView, onViewChange, pageTitle, onConversationSelect, activeConversationId, conversationRefreshTrigger }: SidebarProps) {
+export function Sidebar({ activeView, onViewChange, pageTitle }: SidebarProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [conversations, setConversations] = React.useState<Conversation[]>([]);
-
-  React.useEffect(() => {
-    if (activeView === "tasks") {
-      fetchConversations();
-    }
-  }, [activeView, conversationRefreshTrigger]);
-
-  const fetchConversations = async () => {
-    try {
-      const res = await fetch("/conversations");
-      if (res.ok) {
-        const data = await res.json();
-        setConversations(data.items || []);
-      }
-    } catch (e) {
-      console.error("Failed to fetch conversations:", e);
-    }
-  };
-
-  const handleConversationClick = (convId: string) => {
-    onConversationSelect?.(convId);
-  };
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="h-[52px] flex items-center gap-2.5 px-3.5 border-b border-sidebar-border">
+        <div className="w-[22px] h-[22px] bg-foreground rounded-md flex items-center justify-center flex-shrink-0">
+          <SwarmLogo className="w-3.5 h-3.5 text-background" />
+        </div>
+        <span className="text-sm font-semibold text-foreground tracking-tight">SwarmMind</span>
+        <span className="ml-auto text-[10px] text-muted-foreground font-mono tracking-wider">v0.1</span>
+      </div>
+
+      {/* New Task Button */}
+      <div className="p-2.5 pb-2">
+        <Button
+          onClick={() => onViewChange("tasks")}
+          className="w-full justify-start gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-[13px]"
+          size="sm"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          新建任务
+        </Button>
+      </div>
+
       {/* Navigation */}
-      <nav className="flex-1 p-3 overflow-y-auto">
-        {/* Primary Navigation */}
-        <div className="space-y-1 mb-4">
-          {navItems.map((item) => (
-            <Button
-              key={item.value}
-              variant="ghost"
-              onClick={() => onViewChange(item.value)}
-              className={cn(
-                "w-full justify-start gap-3 px-3 py-2.5 h-auto",
-                activeView === item.value
-                  ? "bg-neutral-800 text-white hover:bg-neutral-700"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
-              )}
-            >
-              {item.icon}
-              <span className="text-sm">{item.label}</span>
-            </Button>
-          ))}
+      <nav className="flex-1 overflow-y-auto px-1.5 py-1">
+        {/* 导航 */}
+        <div className="px-2 pt-1 pb-0">
+          <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground/70 opacity-60 pb-1 px-2">导航</p>
+          <div className="space-y-0.5">
+            {navItems.map((item) => (
+              <button
+                key={item.value}
+                onClick={() => onViewChange(item.value)}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] transition-colors",
+                  activeView === item.value
+                    ? "bg-secondary text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                )}
+              >
+                <span className="opacity-60">{item.icon}</span>
+                <span>{item.label}</span>
+                {item.badge && (
+                  <span className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded bg-border text-muted-foreground">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Collapsible Sections */}
-        <div className="pt-3 border-t border-neutral-800">
-          <CollapsibleSection title="Quick Actions">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-neutral-400 hover:text-white"
-            >
-              Create Project
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-neutral-400 hover:text-white"
-            >
-              New Agent
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-neutral-400 hover:text-white"
-            >
-              Import Data
-            </Button>
-          </CollapsibleSection>
+        <div className="h-px bg-sidebar-border my-2 mx-2" />
 
-          <CollapsibleSection title="Recent" defaultOpen>
-            {conversations.length === 0 ? (
-              <p className="text-xs text-neutral-500 px-3 py-1">No conversations yet</p>
-            ) : (
-              conversations.map((conv) => (
-                <Button
-                  key={conv.id}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleConversationClick(conv.id)}
-                  className={cn(
-                    "w-full justify-start text-neutral-400 hover:text-white truncate",
-                    activeConversationId === conv.id && "bg-neutral-800 text-white"
-                  )}
-                >
-                  {conv.title}
-                </Button>
-              ))
-            )}
-          </CollapsibleSection>
+        {/* 功能 */}
+        <div className="px-2 pt-0 pb-1">
+          <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground/70 opacity-60 pb-1 px-2">功能</p>
+          <div className="space-y-0.5">
+            {featureItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => {}}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              >
+                <span className="opacity-60">{item.icon}</span>
+                <span>{item.label}</span>
+                <span className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-foreground">
+                  {item.badge}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-px bg-sidebar-border my-2 mx-2" />
+
+        {/* Recent */}
+        <div className="px-2 pt-0">
+          <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground/70 opacity-60 pb-1 px-2">最近</p>
+          <div className="space-y-0.5">
+            {RECENT_ITEMS.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => {}}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              >
+                <span className="truncate flex-1 text-left">{item.label}</span>
+                <span className="text-[10px] font-mono text-muted-foreground/60 flex-shrink-0">{item.time}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-neutral-800">
-        <Button
-          variant="ghost"
-          className="w-full justify-center text-neutral-400 hover:text-white text-sm"
-        >
-          Settings
-        </Button>
+      <div className="p-2 border-t border-sidebar-border">
+        <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+          <div className="w-6 h-6 bg-secondary rounded-full flex items-center justify-center text-[10px] font-semibold border border-border">
+            容
+          </div>
+          <div className="flex-1 text-left">
+            <div className="text-[13px] font-medium text-foreground leading-tight">容芯开源组</div>
+            <div className="text-[11px] text-muted-foreground">Pro 计划</div>
+          </div>
+          <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+        </button>
       </div>
     </div>
   );
@@ -232,21 +211,21 @@ export function Sidebar({ activeView, onViewChange, pageTitle, onConversationSel
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-50 w-64 bg-neutral-950 border-r border-neutral-800 md:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-[220px] bg-sidebar border-r border-sidebar-border md:hidden"
             >
               {/* Mobile Header */}
-              <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+              <div className="flex items-center justify-between p-3.5 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground text-sm font-bold">
-                    S
+                  <div className="w-[22px] h-[22px] bg-foreground rounded-md flex items-center justify-center">
+                    <SwarmLogo className="w-3.5 h-3.5 text-background" />
                   </div>
-                  <span className="text-white font-semibold">SwarmMind</span>
+                  <span className="text-foreground font-semibold text-sm">SwarmMind</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsOpen(false)}
-                  className="text-neutral-400 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <XIcon />
                 </Button>
@@ -258,28 +237,24 @@ export function Sidebar({ activeView, onViewChange, pageTitle, onConversationSel
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col fixed top-0 left-0 h-full w-64 bg-neutral-950 border-r border-neutral-800">
-        {/* Desktop Header */}
-        <div className="flex items-center justify-center p-4 border-b border-neutral-800">
-          <span className="text-white font-semibold text-base">SwarmMind</span>
-        </div>
+      <div className="hidden md:flex flex-col fixed top-0 left-0 h-full w-[220px] bg-sidebar border-r border-sidebar-border">
         {sidebarContent}
       </div>
 
       {/* Mobile Header Bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-neutral-950 border-b border-neutral-800">
-        <div className="flex items-center justify-between p-4">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-sidebar border-b border-sidebar-border">
+        <div className="flex items-center justify-between p-3.5">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground text-sm font-bold">
-              S
+            <div className="w-[22px] h-[22px] bg-foreground rounded-md flex items-center justify-center">
+              <SwarmLogo className="w-3.5 h-3.5 text-background" />
             </div>
-            <span className="text-white font-semibold">{pageTitle || "SwarmMind"}</span>
+            <span className="text-foreground font-semibold text-sm">{pageTitle || "SwarmMind"}</span>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsOpen(true)}
-            className="text-neutral-400 hover:text-white"
+            className="text-muted-foreground hover:text-foreground"
           >
             <Menu />
           </Button>
