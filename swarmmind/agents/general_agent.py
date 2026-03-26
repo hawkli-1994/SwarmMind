@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+
+from deerflow.client import DeerFlowClient
 
 from swarmmind.agents.base import BaseAgent
 
@@ -21,9 +22,6 @@ from swarmmind.config import DEER_FLOW_CONFIG_PATH
 from swarmmind.context_broker import update_proposal_result
 from swarmmind.db import get_connection
 from swarmmind.models import ActionProposal, MemoryContext
-
-if TYPE_CHECKING:
-    from deerflow.client import DeerFlowClient
 
 logger = logging.getLogger(__name__)
 
@@ -49,23 +47,7 @@ class GeneralAgent(BaseAgent):
         self._default_model = default_model
         self._thinking_enabled = thinking_enabled
 
-        if self._config_path is None:
-            raise ValueError(
-                "DeerFlow is not configured. "
-                "To enable GeneralAgent, set DEER_FLOW_CONFIG_PATH environment variable "
-                "to point to your DeerFlow config.yaml, and install with "
-                "`uv sync --extra deerflow`."
-            )
-
-        try:
-            from deerflow.client import DeerFlowClient
-        except ImportError:
-            raise ValueError(
-                "DeerFlow is not installed. "
-                "Install it with `uv sync --extra deerflow` to enable GeneralAgent."
-            )
-
-        self._client: "DeerFlowClient" = DeerFlowClient(
+        self._client: DeerFlowClient = DeerFlowClient(
             config_path=self._config_path,
             model_name=default_model,
             thinking_enabled=thinking_enabled,

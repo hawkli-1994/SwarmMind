@@ -120,7 +120,7 @@ swarmmind/
 
 - **❌ 禁止硬编码个人路径** — 任何路径必须通过环境变量或配置传递，禁止在代码中写死 `/home/xxx`、`/Users/xxx` 等个人目录路径
 - **✅ 路径必须可配置** — 使用 `os.environ.get("PATH_ENV_VAR", None)` 或 `config.py` 中的配置项
-- **✅ 可选依赖** — 非核心功能（如 DeerFlow）必须作为 optional dependency，优雅降级
+- **✅ 可选依赖** — 非核心功能必须作为 optional dependency，优雅降级
 
 ## LLM Configuration
 
