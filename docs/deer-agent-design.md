@@ -1,4 +1,9 @@
-# GeneralAgent 设计方案（已实现）
+# GeneralAgent 设计方案
+
+> ⚠️ **已废弃** — 本文档描述的设计已被 [架构文档](architecture.md) 中的 **AgentAdapter 架构**取代。
+>
+> DeerFlow 不再通过 `GeneralAgent` 直接耦合，而是通过 `DeerFlowAdapter`（Local Adapter）接入。
+> 参见：[架构文档 - AgentAdapter 定义](architecture.md#四agent-interface-定义)
 
 > 状态：✅ 已实现
 > 实现文件：`swarmmind/agents/general_agent.py`
