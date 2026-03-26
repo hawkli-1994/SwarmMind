@@ -1,4 +1,4 @@
-.PHONY: help install dev frontend backend restart stop status logs clean
+.PHONY: help install dev frontend backend restart stop status logs clean build build-ui typecheck test
 
 # Defaults
 BACKEND_DIR := .
@@ -13,6 +13,20 @@ help: ## Show this help
 install: ## Install all dependencies (backend + frontend)
 	uv sync
 	cd $(UI_DIR) && pnpm install
+
+# ---- Build ----
+build: ## Build frontend (UI) for production
+	cd $(UI_DIR) && pnpm run build
+
+build-ui: build ## Alias for build
+
+# ---- Type check ----
+typecheck: ## Run TypeScript type check (frontend)
+	cd $(UI_DIR) && npx tsc --noEmit
+
+# ---- Test ----
+test: ## Run Python backend tests
+	uv run pytest tests/ -v
 
 # ---- Dev ----
 dev: ## Run both backend and frontend via PM2 (background)

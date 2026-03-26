@@ -144,13 +144,16 @@ ANTHROPIC_BASE_URL=https://coding.dashscope.aliyuncs.com/v1
 
 ## Running
 
-**PM2 + Makefile (recommended for development):**
+**所有开发/构建命令必须通过 `make` 执行。** PM2 + Makefile：
 ```bash
-make install   # install all deps (uv sync + pnpm install)
-make dev       # start both backend + frontend via PM2
-make logs      # tail PM2 logs
-make stop      # stop all services
-make status    # show PM2 status
+make install       # install all deps (uv sync + pnpm install)
+make dev           # start both backend + frontend via PM2
+make build         # build frontend for production
+make typecheck     # TypeScript type check (frontend only)
+make test          # run Python backend tests
+make logs          # tail PM2 logs
+make stop          # stop all services
+make status        # show PM2 status
 ```
 
 **⚠️ PM2 Process Management Rules:**
@@ -166,16 +169,6 @@ make restart-ui    # restart frontend only
 make restart       # restart both
 make backend       # start backend only (first time)
 make frontend      # start frontend only (first time)
-```
-
-**Manual (without PM2):**
-```bash
-# Backend
-uv sync
-uv run python -m swarmmind.api.supervisor
-
-# Frontend
-cd ui && pnpm install && pnpm run dev
 ```
 
 ## Supervisor UI
@@ -203,7 +196,7 @@ cd ui && pnpm install && pnpm run dev
 ## Running Tests
 
 ```bash
-uv run pytest tests/ -v
+make test          # uv run pytest tests/ -v
 ```
 
 ## Related Docs
