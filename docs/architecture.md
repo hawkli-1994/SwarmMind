@@ -1,6 +1,6 @@
 # SwarmMind 架构文档
 
-> 版本：v0.8.4
+> 版本：v0.8.7
 > 日期：2026-03-27
 > 状态：DeerFlow-first 目标架构
 
@@ -25,10 +25,11 @@
 
 ### 2.2 Project 是唯一工作边界
 
-- `Project` 是一件事的唯一执行边界和长期工作空间。
+- `Project` 是一件事的唯一正式执行边界和长期工作空间。
 - 任务、资料、档案、进度、问题、审批、约束、artifact、审计都归属于 `Project`。
-- 所有运行都必须发生在某个 `Project` 内。
-- 脱离 `Project` 的独立执行，不属于主架构允许的模式。
+- 多用户协作、Team 工作流、审批、项目级可视化都必须发生在某个 `Project` 内。
+- 系统允许用户在未创建 `Project` 时先开启轻量 `ChatSession`。
+- `ChatSession` 可以在后续被提升为 `Project`。
 - `Project` 同时是多用户共享、权限控制和审计归属的顶层边界。
 
 ### 2.3 DeerFlow 是唯一执行内核
@@ -56,12 +57,14 @@
 - `trusted / untrusted` 表示是否可纳入严格生命周期约束。
 - DeerFlow 本体按 `local + trusted` 处理。
 - DeerFlow 通过 MCP 或 HTTP 调用的外部系统，按各自的 `transport + trust` 级别处理。
+- 企业内部系统接入的主路线采用 `MCP + Skill`，详细规则见 `docs/mcp-skill-integration.md`。
 
 ### 2.7 数据边界必须分层
 
-必须拆开七类控制面数据：
+必须拆开八类控制面数据：
 
 - `ProjectStore`：项目定义、范围、约束、绑定关系、运行边界。
+- `ChatSessionStore`：轻量聊天会话、入口模式、提升关系和会话元数据。
 - `ProjectMemberStore`：项目成员、角色、权限和 actor 身份。
 - `TaskStore`：任务状态、路由结果、handoff 元数据。
 - `RunStore`：运行事实、状态迁移、事件索引和 usage 摘要。
@@ -126,8 +129,14 @@ Human Supervisor
         |
         v
 Supervisor API / UI
-        |
-        v
+       / \
+      v   v
+Pre-Project Chat
+  |- ChatSession
+  |- ChatSessionStore
+      |
+      | promote
+      v
 Project Workspace
   |- Project Control Plane
   |    |- Broker
@@ -145,8 +154,9 @@ Project Workspace
   |    |- plan_mode / subagent
   |    |- memory middleware
   |
-  |- Project-managed stores
+  |- Control-plane stores
   |    |- ProjectStore
+  |    |- ChatSessionStore
   |    |- ProjectMemberStore
   |    |- TaskStore
   |    |- RunStore
@@ -161,6 +171,7 @@ Project Workspace
 
 Optional control-plane capability:
   - ProfileManager
+  - SkillCenter
 ```
 
 组件职责：
@@ -172,6 +183,7 @@ Optional control-plane capability:
 - `DeerFlow Gateway`：把 SwarmMind 的目标、上下文、文件和运行策略映射到 DeerFlow 调用。
 - `Committer`：统一提交任务状态、artifact 索引与审计记录。
 - `AgentTeam`：提供可附着到 `Project` 的角色组织、协作协议和知识资产。
+- `SkillCenter`：管理 `MCP`、`Skill` 及其与 `Agent` / `AgentTeam` 的绑定关系。
 
 `Agent Registry` 不属于主架构。如果未来确实引入第二执行引擎，再作为扩展能力恢复。
 
@@ -211,6 +223,7 @@ Project
 - 同一个 `Project` 可以被多个用户共同查看和协作。
 - 同一个 `Project` 下的资料、进度、artifact、run history 对有权限的成员可见。
 - 审批、审计、运行约束都首先归属于 `Project`，而不是归属于 Team 模板。
+- 用户可以先在轻量 `ChatSession` 中探索需求，但一旦要共享、协作、审批或进入工作流推进，就应提升为 `Project`。
 
 ### 3.2 AgentTeam 作为可复用协作模板
 
@@ -337,6 +350,35 @@ TeamInterfaceAgent
 - 它不能吞掉原始 `actor_id`；所有内部 run 仍需保留真实发起人。
 - 是否允许 `thread_policy=reuse`，应优先由 `TeamInterfaceAgent` 判定，而不是由最终用户直接决定。
 - intake、routing 和 thread reuse 的详细规则见 `docs/team-interface-agent-adr.md`。
+
+### 3.7 ChatSession 与 Promote to Project
+
+SwarmMind 允许用户在未创建 `Project` 时直接开始一个轻量聊天会话。
+
+```text
+ChatSession
+  - chat_session_id
+  - actor_id
+  - status
+  - entry_mode          (direct_model | default_agent)
+  - thread_id
+  - summary_ref
+  - promoted_project_id
+```
+
+定位：
+
+- `ChatSession` 是探索性、个人化、低治理成本的前项目入口。
+- 它不是 Team 协作边界，也不是多用户共享工作空间。
+- 它可以由直连模型承接，也可以由默认 Agent 承接。
+
+约束：
+
+- `ChatSession` 默认按单用户会话处理，不承载 Team workflow。
+- `ChatSession` 默认不挂项目级 `RBAC`、审批和协作看板。
+- 一旦用户选择“提升为 Project”，系统必须创建正式 `Project`，并对聊天内容做语义压缩。
+- 语义压缩结果应作为新 `Project` 的文档资产写入，而不是迁移整个 chat thread。
+- 提升后，`Project` 成为后续执行和治理的正式边界；原 `ChatSession` 只保留为来源记录或只读入口。
 
 ## 4. DeerFlow 原生执行模型
 
@@ -495,9 +537,37 @@ RuntimeNamespace
 约束：
 
 - Project 是任务、审批、artifact、audit 的上级边界。
-- 脱离 `project_id` 的执行记录不属于主架构允许形态。
+- 正式协作记录必须归属于 `project_id`。
+- 轻量 `ChatSession` 记录允许独立存在，但不等同于项目级治理记录。
 
-### 5.2 ProjectMemberStore
+### 5.2 ChatSessionStore
+
+`ChatSessionStore` 保存用户在创建 `Project` 之前的轻量聊天会话元数据。
+
+最小结构如下：
+
+```text
+ChatSession
+  - chat_session_id
+  - actor_id
+  - entry_mode          (direct_model | default_agent)
+  - thread_id
+  - status
+  - summary_ref
+  - promoted_project_id
+  - created_at
+  - last_active_at
+```
+
+约束：
+
+- `ChatSession` 默认是单用户私有入口，不是项目级共享空间。
+- 它允许使用直连模型或默认 Agent，但不默认承载 Team、审批和多成员治理。
+- 若用户触发提升，`promoted_project_id` 必须建立与目标 `Project` 的映射。
+- 提升时应生成语义压缩摘要，并作为目标 `Project` 的文档资产落库。
+- 提升后不复用原 `ChatSession` thread；正式项目从新的项目上下文开始。
+
+### 5.3 ProjectMemberStore
 
 `ProjectMemberStore` 采用正式 `RBAC`，保存项目成员、角色绑定和权限投影。
 
@@ -535,7 +605,7 @@ RoleBinding
 - 权限控制先落在 `Project` 级 `RBAC`，再投影到 Team、Run 和 Artifact 访问。
 - 不允许仅靠前端隐藏实现权限隔离，控制面必须按权限键做服务端校验。
 
-### 5.3 TaskStore
+### 5.4 TaskStore
 
 `TaskStore` 只保存可被控制面解释和回放的轻量元数据，例如：
 
@@ -555,7 +625,7 @@ RoleBinding
 - 不保存完整 DeerFlow memory 快照。
 - 不保存大文件内容。
 
-### 5.4 RunStore
+### 5.5 RunStore
 
 `RunStore` 保存可回放的运行事实层，用于承接 `stream`、`partial`、tool 调用摘要和状态迁移。
 
@@ -585,7 +655,7 @@ RunRecord
 - 长日志、完整流式输出和大 payload 仍放入 artifact。
 - `partial`、`cancelled` 和失败原因必须在 `RunStore` 中可查询。
 
-### 5.5 ArtifactStore
+### 5.6 ArtifactStore
 
 `ArtifactStore` 是 DeerFlow 输出结果的主承载层。
 
@@ -601,7 +671,7 @@ RunRecord
 
 - 控制面只保存 artifact 索引，不复制大内容到 TaskStore 或 AuditLog。
 
-### 5.6 TeamAssetStore
+### 5.7 TeamAssetStore
 
 `TeamAssetStore` 保存可跨项目复用的 Team 知识资产。
 
@@ -620,7 +690,7 @@ RunRecord
 - `Project` 只引用 Team 资产的版本，而不拥有其源资产。
 - 如需为项目冻结上下文，可在 `Project` 内保存引用快照或派生副本。
 
-### 5.7 AuditLog
+### 5.8 AuditLog
 
 `AuditLog` 只保留关键决策和运行轨迹，不做全量事件归档仓库。
 
@@ -641,7 +711,7 @@ RunRecord
 - DeerFlow memory.json 的逐字段变更历史。
 - DeerFlow 异步 summarization 的中间过程。
 
-### 5.8 Team Knowledge Assets
+### 5.9 Team Knowledge Assets
 
 Team 知识资产属于控制面知识层，不属于 DeerFlow runtime memory。
 
@@ -657,7 +727,7 @@ Team 知识资产属于控制面知识层，不属于 DeerFlow runtime memory。
 - 允许通过复盘沉淀新的知识包。
 - 不允许自动写成 DeerFlow memory。
 
-### 5.9 ProfileManager
+### 5.10 ProfileManager
 
 `ProfileManager` 是可选控制面能力，不属于 DeerFlow 运行主闭环。
 
@@ -674,7 +744,7 @@ Team 知识资产属于控制面知识层，不属于 DeerFlow runtime memory。
 - DeerFlow 只能接收经过投影和筛选后的少量偏好字段。
 - `untrusted remote` 不得获得完整 profile 快照。
 
-### 5.10 Deferred: LayeredMemory
+### 5.11 Deferred: LayeredMemory
 
 `LayeredMemory` 不属于主架构承诺，不进入 DeerFlow 主执行路径。
 
@@ -686,7 +756,7 @@ Team 知识资产属于控制面知识层，不属于 DeerFlow runtime memory。
 
 在满足以上条件前，不实现、不接线、不作为主方案依赖。
 
-### 5.11 约束优先级
+### 5.12 约束优先级
 
 同一轮运行中，规则优先级固定为：
 
@@ -706,11 +776,32 @@ Project constraints
 
 ## 6. 生命周期与协作
 
-### 6.1 DeerFlow 主路径
+### 6.1 轻量 ChatSession 路径
 
 ```text
-goal
+user opens chat
+  -> create or reuse ChatSession
+  -> choose entry mode (direct model or default agent)
+  -> DeerFlow run_turn in lightweight chat mode
+  -> continue exploratory conversation
+  -> optional semantic compression
+  -> optional promote to Project
+```
+
+说明：
+
+- 用户不必先创建 `Project` 才能开始对话。
+- 轻量聊天适合需求探索、想法讨论和初步方案整理。
+- `ChatSession` 默认不带 Team workflow、审批和项目级可视化。
+- 当用户需要共享、治理、协作或长期推进时，应提升为 `Project`。
+- 提升动作的核心不是迁移原会话，而是把聊天语义压缩成项目初始文档资产。
+
+### 6.2 DeerFlow 主路径
+
+```text
+goal or promoted chat
   -> resolve project boundary
+  -> load promoted summary artifacts if any
   -> resolve actor identity and permissions
   -> resolve project team instance / agent runtime instance
   -> router selects task_kind
@@ -725,12 +816,14 @@ goal
 说明：
 
 - DeerFlow 主路径不依赖 `prepare / propose / execute` 三段式。
-- 任何运行都必须先落入明确的 `Project` 边界。
+- 正式协作运行必须先落入明确的 `Project` 边界。
+- `Project` 可以从零创建，也可以由 `ChatSession` 提升而来。
+- 若由 `ChatSession` 提升而来，正式项目应读取压缩后的文档资产，而不是继承整个 chat thread。
 - 任何运行都必须绑定到明确的 `actor` 和项目内 runtime instance。
 - 批准粒度只允许是整轮运行，不拆成伪造的子 proposal。
 - 若审批复杂度高于其收益，应直接删除审批层，而不是继续扩张。
 
-### 6.2 DeerFlow 协作路径
+### 6.3 DeerFlow 协作路径
 
 默认协作优先使用 DeerFlow 原生机制：
 
@@ -768,7 +861,7 @@ member request
 - 需要防止多人直接并发写入同一 thread。
 - 需要先做上下文整理，再进入 DeerFlow 执行。
 
-### 6.3 多用户并发语义
+### 6.4 多用户并发语义
 
 同一个 `Project` 允许多个成员同时工作，但并发必须显式建模。
 
@@ -790,7 +883,7 @@ member request
 
 详细判定规则见 `docs/team-interface-agent-adr.md`。
 
-### 6.4 Remote 能力边界
+### 6.5 Remote 能力边界
 
 远端能力属于 DeerFlow 通过 MCP 或 HTTP 使用的外部工具体系，不与 DeerFlow 并列为主执行引擎。
 
@@ -807,7 +900,7 @@ member request
 - 不能被当成严格无副作用的预执行探测参与者。
 - 其结果只被视为 DeerFlow 的外部工具输出，是否沉淀由控制面决定。
 
-### 6.5 失败语义
+### 6.6 失败语义
 
 系统只承诺：
 
@@ -901,6 +994,7 @@ RunApproval
 ### 阶段 A
 
 - 明确 DeerFlow 是唯一核心执行内核。
+- 建立轻量 `ChatSession`，支持直连模型或默认 Agent 的会话入口。
 - 建立 `Project` 作为顶层工作空间实体。
 - 建立 `DeerFlow Gateway`，优先承接 `chat/stream/thread/artifact/upload/skill` 能力。
 - 建立 `task_kind -> DeerFlowRuntimeProfile` 的策略表。
@@ -908,6 +1002,7 @@ RunApproval
 ### 阶段 B
 
 - 建立 `ProjectStore`，把任务、审批、artifact、audit 全部挂到 `project_id`。
+- 建立 `ChatSessionStore` 和 `Promote to Project` 流程。
 - 建立基于 `RBAC` 的 `ProjectMemberStore` 和 `RunStore`。
 - 明确 thread、artifact、upload 是一等结果，不只返回文本。
 - 正式以 DeerFlow memory 作为唯一长期记忆来源。
@@ -933,6 +1028,7 @@ RunApproval
 
 ```text
 swarmmind/
+├── chats/
 ├── projects/
 ├── members/
 ├── broker/
@@ -959,7 +1055,7 @@ swarmmind/
 
 SwarmMind 的底座只需要先做对四件事：
 
-1. `Project` 成为唯一工作边界。
+1. 轻量 `ChatSession` 与正式 `Project` 的边界清晰。
 2. DeerFlow 成为唯一执行内核。
 3. 模板、绑定、实例三层运行模型清晰。
 4. 成员、任务、运行、产物、团队资产、审计等控制面边界清晰。
@@ -968,6 +1064,6 @@ SwarmMind 的底座只需要先做对四件事：
 
 最终落地原则只有三条：
 
-- 一切执行都必须发生在 `Project` 内。
+- 轻量探索可以发生在 `ChatSession`，正式协作与治理必须发生在 `Project` 内。
 - DeerFlow 有稳定原生能力，就优先围绕它建设控制面。
 - 任何新增层如果不能显著降低复杂度和风险，或会制造第二真相源，就不要进入主架构。
