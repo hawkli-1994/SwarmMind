@@ -2,7 +2,7 @@
 
 > 日期：2026-03-27
 > 用途：基于现有架构文档，产出 Supervisor UI 的完整页面线框集合
-> 主要依据：`docs/frontend-ui-spec.md`、`docs/architecture.md`、`docs/enterprise-crm-user-story.md`、`docs/team-interface-agent-adr.md`、`docs/workflow-template-system.md`、`docs/mcp-skill-integration.md`
+> 主要依据：`docs/frontend-ui-spec.md`、`docs/architecture.md`、`docs/enterprise-crm-user-story.md`
 
 ## 1. 文档目标
 
@@ -14,15 +14,22 @@
 - 明确 Supervisor UI 不是普通聊天界面，而是 AI Team 控制面
 - 为后续视觉设计、交互稿和前端实现提供统一骨架
 
+补充规则：
+
+- 用户看到的是 `Agent Team`
+- Team 管理页编辑的是 `AgentTeamTemplate`
+- 项目空间里使用的是 `ProjectAgentTeamInstance`
+
 ## 2. 阅读顺序
 
-1. `01-navigation-and-principles.md`
-2. `02-page-map-and-flows.md`
-3. `10-workbench-and-chat.md`
-4. `20-skill-center.md`
-5. `30-projects-and-project-space.md`
-6. `40-approval-center.md`
-7. `60-knowledge-library-schedules.md`
+1. `00-v1-visual-language.md`
+2. `01-navigation-and-principles.md`
+3. `02-page-map-and-flows.md`
+4. `10-workbench-and-chat.md`
+5. `20-skill-center.md`
+6. `30-projects-and-project-space.md`
+7. `40-approval-center.md`
+8. `60-knowledge-library-schedules.md`
 
 ## 3. 页面清单
 

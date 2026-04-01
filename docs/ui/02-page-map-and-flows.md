@@ -46,7 +46,7 @@
   -> ChatSession 形成问题摘要
   -> 用户点击 提升为 Project
   -> 新建项目页预填目标 / 范围 / 约束
-  -> 选择 Team
+  -> 选择 Agent Team 模板
   -> 进入项目总览
   -> 项目协作台开始正式 intake
 ```
@@ -61,7 +61,8 @@
 ```text
 项目列表
   -> 新建项目
-  -> 选择 AgentTeam
+  -> 选择 Agent Team 模板
+  -> 系统创建 ProjectAgentTeamInstance
   -> 系统自动挂载默认 WorkflowTemplate
   -> 项目空间 / 总览
   -> 项目协作台
@@ -72,8 +73,8 @@
 设计要点：
 
 - 用户不应在创建阶段被迫重复选择“Team”和“几乎同义的工作流模板”。
-- `TeamInterfaceAgent` 的 intake 结果要回写到 Overview 与 Kanban。
-- 如果创建时未选 Team，项目设置页必须允许后挂 Team，并在挂载后生成 `ProjectTeamInstance` 与接口人入口。
+- 协作台入口的 intake 结果要回写到 Overview 与 Kanban。
+- 如果创建时未选 Team，项目设置页必须允许后挂 Team，并在挂载后生成 `ProjectAgentTeamInstance`。
 
 ### 3.1 项目空间固定导航
 
@@ -118,7 +119,7 @@
 技能中心
   -> 配置 MCP
   -> 安装 / 绑定 Skill
-  -> 绑定到 Team / Project
+  -> 绑定到 Team 模板 / 项目 Team 实例 / Project
   -> 项目设置页可见已启用能力
   -> 项目协作台实际调用
   -> 审批中心 / 运行日志展示调用结果
