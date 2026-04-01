@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
+import {
+  ArrowUp,
   Brain,
   Copy,
   Loader2,
-  Send,
+  Paperclip,
   Sparkles,
-  Upload,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -198,6 +202,72 @@ function statusLabel(phase: RuntimeState["phase"]) {
   return "待开始";
 }
 
+const MODEL_OPTIONS = [
+  { id: "qwen3.5-plus", label: "Qwen 3.5 Plus" },
+  { id: "qwen3.5-turbo", label: "Qwen 3.5 Turbo" },
+  { id: "deepseek-r1", label: "DeepSeek R1" },
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+];
+
+function ModelPicker({
+  selected,
+  onSelect,
+}: {
+  selected: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = MODEL_OPTIONS.find((m) => m.id === selected) ?? MODEL_OPTIONS[0];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <Sparkles className="size-3.5" />
+        <span className="max-w-[100px] truncate">{current.label}</span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 4, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
+              className="absolute bottom-full left-0 z-50 mb-2 w-[180px] overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-md"
+            >
+              {MODEL_OPTIONS.map((model) => (
+                <button
+                  key={model.id}
+                  type="button"
+                  onClick={() => {
+                    onSelect(model.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition-colors",
+                    model.id === selected
+                      ? "bg-accent text-foreground font-medium"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <Sparkles className="size-3.5 shrink-0" />
+                  <span className="truncate">{model.label}</span>
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   thinking,
@@ -252,6 +322,7 @@ export function V0Chat({ conversationId, onConversationCreated, onConversationsC
   const [runtime, setRuntime] = useState<RuntimeState>(createEmptyRuntime());
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("qwen3.5-plus");
   const [error, setError] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(conversationId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -664,28 +735,34 @@ export function V0Chat({ conversationId, onConversationCreated, onConversationsC
             className="min-h-[100px] resize-none border-none bg-transparent px-5 py-4 text-[15px] focus-visible:ring-0"
             disabled={isLoading}
           />
-          <div className="flex items-center justify-between border-t border-border px-5 py-3">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" disabled className="h-8 text-[13px] text-muted-foreground">
-                <Upload className="size-3.5" />
-                上传
+          <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon-xs" disabled className="text-muted-foreground" title="上传附件">
+                <Paperclip className="size-4" />
               </Button>
               {lastAssistantMessage && (
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-8 text-[13px]"
+                  size="icon-xs"
+                  className="text-muted-foreground"
                   onClick={() => navigator.clipboard.writeText(lastAssistantMessage.content)}
+                  title="复制回复"
                 >
-                  <Copy className="size-3.5" />
-                  复制
+                  <Copy className="size-4" />
                 </Button>
               )}
             </div>
-            <Button onClick={() => void handleSubmit()} disabled={!input.trim() || isLoading} size="sm">
-              {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {isLoading ? "发送中" : "发送"}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <ModelPicker selected={selectedModel} onSelect={setSelectedModel} />
+              <Button
+                onClick={() => void handleSubmit()}
+                disabled={!input.trim() || isLoading}
+                size="icon-sm"
+                className="rounded-lg"
+              >
+                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
