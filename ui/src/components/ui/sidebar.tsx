@@ -5,13 +5,13 @@ import { AnimatePresence, motion } from "framer-motion"
 import {
   BookOpenText,
   Bot,
-  ChevronDown,
   Clock3,
   FolderKanban,
   History,
   Home,
   Library,
   Menu,
+  PenSquare,
   Plus,
   Sparkles,
   X,
@@ -34,7 +34,7 @@ export type SidebarView =
 
 export const VIEW_LABELS: Record<SidebarView, string> = {
   workbench: "工作台",
-  chat: "AI 生成",
+  chat: "新建",
   teams: "Agent Team",
   skills: "技能中心",
   assets: "资源库",
@@ -52,7 +52,7 @@ const projectItems = [
 
 const primaryItems: Array<{ value: SidebarView; label: string; icon: React.ReactNode }> = [
   { value: "workbench", label: "工作台", icon: <Home className="size-4" /> },
-  { value: "chat", label: "AI 生成", icon: <Sparkles className="size-4" /> },
+  { value: "chat", label: "新建", icon: <PenSquare className="size-4" /> },
 ]
 
 const capabilityItems: Array<{ value: SidebarView; label: string; icon: React.ReactNode }> = [
@@ -94,7 +94,7 @@ function NavButton({
         active ? "bg-white text-foreground" : "text-muted-foreground hover:bg-white hover:text-foreground",
       )}
     >
-      <span className={cn("mr-3 text-muted-foreground", active && "text-foreground")}>{icon}</span>
+      <span className={cn("mr-2 text-muted-foreground", active && "text-foreground")}>{icon}</span>
       <span className="flex-1 truncate text-[14px] leading-[22px]">{label}</span>
       {badge ? <span className="text-[12px] leading-[18px] text-muted-foreground">{badge}</span> : null}
     </Button>
@@ -141,44 +141,31 @@ export function Sidebar({
 
   const sidebarContent = (
     <div className="flex h-full flex-col bg-sidebar">
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
-              <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
-                <path d="M6.5 1L11.5 4v5L6.5 12 1.5 9V4L6.5 1Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                <circle cx="6.5" cy="6.5" r="1.5" fill="currentColor" />
-              </svg>
-            </div>
-            <span className="text-[14px] font-semibold tracking-tight text-foreground">SwarmMind</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => handleSelect("chat")}
-            className="text-muted-foreground hover:text-foreground"
-            title="新建生成任务"
-          >
-            <Plus className="size-4" />
-          </Button>
-        </div>
+      <div className="relative px-4 pt-4 pb-3">
+        <span className="block text-center text-[14px] font-semibold tracking-tight text-foreground">SwarmMind</span>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => handleSelect("chat")}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          title="新建生成任务"
+        >
+          <Plus className="size-4" />
+        </Button>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-6">
-          <div className="space-y-2">
-            <SectionLabel>入口</SectionLabel>
-            <div className="space-y-1">
-              {primaryItems.map((item) => (
-                <NavButton
-                  key={item.value}
-                  active={activeView === item.value}
-                  icon={item.icon}
-                  label={item.label}
-                  onClick={() => handleSelect(item.value)}
-                />
-              ))}
-            </div>
+          <div className="space-y-1">
+            {primaryItems.map((item) => (
+              <NavButton
+                key={item.value}
+                active={activeView === item.value}
+                icon={item.icon}
+                label={item.label}
+                onClick={() => handleSelect(item.value)}
+              />
+            ))}
           </div>
 
           <div className="space-y-2">
@@ -262,17 +249,19 @@ export function Sidebar({
         </div>
       </nav>
 
-      <div className="border-t border-sidebar-border p-4">
-        <Button variant="outline" className="h-auto w-full justify-start px-3 py-2.5">
-          <div className="flex size-8 items-center justify-center rounded-md bg-secondary text-[12px] font-medium text-foreground">
+      <div className="px-3 pb-3 pt-1">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-sidebar-accent"
+        >
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-foreground text-[11px] font-medium tracking-wide text-background">
             KL
           </div>
-          <div className="ml-3 min-w-0 flex-1 text-left">
-            <p className="truncate text-[14px] leading-[22px] text-foreground">Kr Li</p>
-            <p className="truncate text-[12px] leading-[18px] text-muted-foreground">容芯开源组</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] leading-5 font-medium text-foreground">Kr Li</p>
+            <p className="truncate text-[11px] leading-4 text-muted-foreground">容芯开源组</p>
           </div>
-          <ChevronDown className="size-4 text-muted-foreground" />
-        </Button>
+        </button>
       </div>
     </div>
   )
@@ -296,17 +285,9 @@ export function Sidebar({
               transition={{ type: "spring", damping: 24, stiffness: 280 }}
               className="fixed inset-y-0 left-0 z-50 w-[236px] border-r border-sidebar-border bg-sidebar md:hidden"
             >
-              <div className="flex items-center justify-between px-4 pt-4 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
-                    <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
-                      <path d="M6.5 1L11.5 4v5L6.5 12 1.5 9V4L6.5 1Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                      <circle cx="6.5" cy="6.5" r="1.5" fill="currentColor" />
-                    </svg>
-                  </div>
-                  <span className="text-[14px] font-semibold tracking-tight text-foreground">SwarmMind</span>
-                </div>
-                <Button variant="icon" size="icon-sm" onClick={() => setIsOpen(false)}>
+              <div className="relative px-4 pt-4 pb-3">
+                <span className="block text-[14px] font-semibold tracking-tight text-foreground">SwarmMind</span>
+                <Button variant="icon" size="icon-sm" onClick={() => setIsOpen(false)} className="absolute right-4 top-1/2 -translate-y-1/2">
                   <X className="size-4" />
                 </Button>
               </div>
