@@ -303,13 +303,13 @@ function ModePicker({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 360, damping: 28, mass: 0.9 }}
-              className="absolute bottom-full left-0 z-50 mb-3 w-[320px] rounded-[22px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,248,250,0.96))] p-3 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)] backdrop-blur"
+              className="absolute bottom-full left-0 z-50 mb-2.5 w-[286px] rounded-[20px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,248,250,0.96))] p-2.5 shadow-[0_22px_54px_-30px_rgba(15,23,42,0.34)] backdrop-blur"
             >
-              <div className="mb-2 px-1">
+              <div className="mb-1.5 px-1">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Mode</p>
-                <p className="text-[13px] text-foreground">选择这轮临时会话的执行方式</p>
+                <p className="text-[12px] text-foreground">选择这轮临时会话的执行方式</p>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {MODE_OPTIONS.map((mode, index) => {
                   const Icon = mode.icon;
                   const isSelected = mode.id === selected;
@@ -326,7 +326,7 @@ function ModePicker({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.03 }}
                       className={cn(
-                        "flex w-full items-start gap-3 rounded-[18px] border bg-white/70 px-3.5 py-3 text-left transition-all",
+                        "flex w-full items-start gap-2.5 rounded-[16px] border bg-white/70 px-3 py-2.5 text-left transition-all",
                         isSelected
                           ? cn("shadow-[0_14px_30px_-22px_rgba(15,23,42,0.45)]", mode.accentClassName)
                           : "border-border/70 text-foreground hover:border-border hover:bg-white",
@@ -334,22 +334,22 @@ function ModePicker({
                     >
                       <span
                         className={cn(
-                          "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border bg-white/80 shadow-sm",
+                          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border bg-white/80 shadow-sm",
                           isSelected ? "border-white/70" : "border-border/70",
                         )}
                       >
-                        <Icon className="size-4" />
+                        <Icon className="size-3.5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="text-[13px] font-semibold">{mode.label}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[12px] font-semibold">{mode.label}</span>
                           {isSelected ? (
-                            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">
+                            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em]">
                               Active
                             </span>
                           ) : null}
                         </span>
-                        <span className="mt-1 block text-[12px] leading-5 opacity-80">
+                        <span className="mt-0.5 block text-[11px] leading-4 opacity-80">
                           {mode.description}
                         </span>
                       </span>

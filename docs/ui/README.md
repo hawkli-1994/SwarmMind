@@ -2,7 +2,7 @@
 
 > 日期：2026-03-27
 > 用途：基于现有架构文档，产出 Supervisor UI 的完整页面线框集合
-> 主要依据：`docs/frontend-ui-spec.md`、`docs/architecture.md`、`docs/enterprise-crm-user-story.md`
+> 主要依据：`docs/architecture.md`、`docs/enterprise-crm-user-story.md`
 
 ## 1. 文档目标
 
@@ -30,6 +30,12 @@
 6. `30-projects-and-project-space.md`
 7. `40-approval-center.md`
 8. `60-knowledge-library-schedules.md`
+
+补充约束：
+
+- 本目录是当前唯一有效的 UI 线框集合。
+- 不再维护独立的前端总规范母稿；若新增规则，应直接写入本目录对应文档。
+- 若某条 UI 规则同时影响运行时语义，应优先写入 `docs/architecture.md`，再在本目录引用或落地为页面规则。
 
 ## 3. 页面清单
 

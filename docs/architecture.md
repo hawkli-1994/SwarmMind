@@ -14,6 +14,115 @@
 - 如果文档与代码冲突，以文档为准，代码应被重构。
 - 本文只描述目标架构，不为历史实现兼容性让步。
 
+### 1.1 术语表
+
+本节定义主架构文档中的唯一推荐术语。
+
+要求：
+
+- 不允许在架构讨论中单独使用模糊的 `Agent` 指代多个不同层次的对象。
+- 一旦涉及实现边界，必须使用带限定词的术语。
+- 如果口头沟通中出现 “agent 实例 / deer-flow agent / 容器实例” 等表达，应回落到本节规范名词。
+
+#### 产品层术语
+
+`Agent Team`
+
+- 指用户在产品界面看到的团队化协作入口。
+- 它是产品语义，不等于一个 DeerFlow 进程、thread 或容器。
+- 内部通常映射为 `AgentTeamTemplate + ProjectAgentTeamInstance + LeadAgentProfile + RuntimeProfile`。
+
+`AgentTeamTemplate`
+
+- 指可复用的团队模板。
+- 它是控制面模板，不是活跃运行实例。
+
+`ProjectAgentTeamInstance`
+
+- 指某个 Team 模板在具体 `Project` 中的实例化配置。
+- 它是控制面实例，不是 DeerFlow Runtime 进程。
+
+#### DeerFlow 运行时术语
+
+`Lead Agent`
+
+- 指 DeerFlow Runtime 内部的根执行代理。
+- 它负责承接一轮会话请求，并在需要时委派 `Subagent`。
+- 它不是产品层的 `Agent Team`，也不是独立部署单元。
+
+`Subagent`
+
+- 指 DeerFlow Runtime 内部由 `Lead Agent` 委派的子执行代理。
+- 它属于同一个 Runtime 边界，默认共享该 Runtime 的配置、工具和隔离边界。
+- 它不是独立租户实例，也不是单独调度的容器。
+
+`thread`
+
+- 指 DeerFlow 的会话状态锚点。
+- 它是运行时上下文标识，不是产品层对象。
+- `ChatSession` 和 `Project` 会话可以映射到一个或多个 `thread`，但不能把 `thread` 直接当成用户对象暴露。
+
+#### Runtime 与部署术语
+
+`RuntimeProfile`
+
+- 指 DeerFlow Runtime 的可版本化控制面配置。
+- 它描述 provider、model catalog、tools、skills、sandbox、memory/checkpointer 和 secret 引用。
+- 它不是运行中的进程或容器。
+
+`DeerFlow Runtime Instance`
+
+- 这是主文档中对“一个独立的 DeerFlow 实现的 Agent 执行实例”的唯一规范称呼。
+- 它表示一个独立运行的 DeerFlow 执行单元，拥有自己的配置装载边界、`DEER_FLOW_HOME`、thread/memory/artifact 工作目录，以及 1 个 `Lead Agent` 入口。
+- 它可以在内部派生多个 `Subagent`，但这些 `Subagent` 仍属于同一个 `DeerFlow Runtime Instance`。
+- 它是运行与隔离的基本单位。
+- 以后如果说“一个 deer-flow agent 实例”，默认应改说 `DeerFlow Runtime Instance`。
+
+`Runtime Worker`
+
+- 这是运维/调度语境中的可选别名。
+- 若无特殊需要，文档正文统一优先使用 `DeerFlow Runtime Instance`。
+
+`Runtime Container`
+
+- 指以容器形式部署的 `DeerFlow Runtime Instance`。
+- 一个 `Runtime Container` 只承载一个 `RuntimeProfile` 版本对应的一个 `DeerFlow Runtime Instance`。
+- 它不是“容器里的多个 agent 集合”，也不是控制面对象。
+
+#### SwarmMind 控制面术语
+
+`Run`
+
+- 指一次可审计、可回放的控制面运行记录。
+- 一个 `Run` 会绑定某个 `RuntimeProfile`、某个 `DeerFlow Runtime Instance`，并可能使用一个或多个 `thread`。
+
+`Task`
+
+- 指控制面中可路由、可跟踪的任务骨架。
+- `Task` 不是 DeerFlow 原生对象，而是 SwarmMind 用来组织运行和审计的控制面对象。
+
+`RuntimeProvisioner`
+
+- 指负责为目标 `RuntimeProfile` 准备、分配、健康检查和回收 `DeerFlow Runtime Instance` 的控制面组件。
+- 它负责调度 Runtime，不负责替代 Runtime 执行会话。
+
+#### 禁止混用规则
+
+以下表达禁止继续在主架构文档中作为正式术语使用：
+
+- `Agent`：除非后面明确跟上 `Team`、`Lead Agent`、`Subagent`、`GeneralAgent Adapter` 等限定词，否则不得单独使用。
+- `deer-flow agent 实例`：统一改为 `DeerFlow Runtime Instance`。
+- `deer-flow 容器实例`：统一改为 `Runtime Container`，并明确它对应一个 `DeerFlow Runtime Instance`。
+- `线程`：如果指的是 DeerFlow 上下文锚点，统一写 `thread`；如果指操作系统线程，不得混写。
+
+#### 当前代码兼容说明
+
+现有代码中若出现如下命名，应按下列方式理解：
+
+- `GeneralAgent`、`FinanceAgent`、`CodeReviewAgent`：这是 SwarmMind 控制面中的适配器/入口组件，不等于 `DeerFlow Runtime Instance`。
+- `DeerFlowClient`：这是 DeerFlow 的嵌入式调用客户端，不等于 `Lead Agent`，也不等于 `RuntimeProfile`。
+- `lead-agent + subagents`：这是 DeerFlow Runtime 内部协作结构，不等于产品层 Team 模板。
+
 ## 2. 核心原则
 
 ### 2.1 控制面与执行面分离
@@ -42,6 +151,8 @@
 ### 2.3 DeerFlow 是唯一执行内核
 
 - SwarmMind 的核心执行统一采用 DeerFlow。
+- `ChatSession` 与 `Project` 内会话统一走 DeerFlow Runtime，不保留并行的原生 `LLMClient` 主执行路径。
+- DeerFlow 不可用时应显式报错并恢复 Runtime，而不是降级到另一套执行内核。
 - 不把“同时抽象接入多个 Agent 框架”作为核心设计目标。
 - 通用 Adapter 不是主架构中心，只能作为未来扩展点。
 
@@ -72,12 +183,13 @@
 
 ### 2.7 数据边界必须分层
 
-必须拆开九类控制面数据：
+必须拆开十类控制面数据：
 
 - `ProjectStore`：项目定义、范围、约束、绑定关系、运行边界。
 - `ChatSessionStore`：轻量聊天会话、入口模式、提升关系和会话元数据。
 - `AgentTeamTemplateStore`：可复用 Team 配置模板及其版本。
 - `ProjectMemberStore`：项目成员、角色、权限和 actor 身份。
+- `RuntimeProfileStore`：DeerFlow runtime profile、provider 配置、工具策略、sandbox 策略和 secret 引用。
 - `TaskStore`：任务状态、路由结果、handoff 元数据。
 - `RunStore`：运行事实、状态迁移、事件索引和 usage 摘要。
 - `ArtifactStore`：报告、代码 diff、文件输出、长日志、导出结果。
@@ -173,6 +285,7 @@ Project Workspace
   |    |- ChatSessionStore
   |    |- AgentTeamTemplateStore
   |    |- ProjectMemberStore
+  |    |- RuntimeProfileStore
   |    |- TaskStore
   |    |- RunStore
   |    |- ArtifactStore
@@ -189,6 +302,7 @@ Project Workspace
 Optional control-plane capability:
   - ProfileManager
   - SkillCenter
+  - RuntimeProvisioner
 ```
 
 组件职责：
@@ -363,7 +477,7 @@ ChatSession
   - chat_session_id
   - actor_id
   - status
-  - entry_mode          (direct_model | default_agent)
+  - runtime_profile_ref
   - thread_id
   - summary_ref
   - promoted_project_id
@@ -373,7 +487,7 @@ ChatSession
 
 - `ChatSession` 是探索性、个人化、低治理成本的前项目入口。
 - 它不是 workflow 协作边界，也不是多用户共享工作空间。
-- 它可以由直连模型承接，也可以由默认 Agent 承接。
+- 它统一由 DeerFlow 默认入口与默认 runtime profile 承接。
 - 它应具备足够完整的可用性，像普通 AI 聊天产品一样直接可用。
 
 约束：
@@ -521,6 +635,131 @@ RuntimeNamespace
 - `artifact_namespace` 至少要隔离到 `project_id`。
 - Gateway 负责把 Project / Profile / Agent 标识稳定映射到 DeerFlow 的 thread 与 memory 标识。
 
+### 4.6 Runtime Profile 与 Runtime Instance 分层
+
+SwarmMind 必须把 DeerFlow 的运行配置拆成两个层次，而不是把每轮会话都直接绑定到手写 `config.yaml`。
+
+其中：
+
+- `RuntimeInstance` 在本架构中等同于术语表中的 `DeerFlow Runtime Instance`。
+- 如果 `RuntimeInstance` 以容器部署，则该部署实体称为 `Runtime Container`。
+
+控制面资产：
+
+```text
+RuntimeProfile
+  - runtime_profile_id
+  - tenant_scope
+  - display_name
+  - provider_type
+  - model_catalog
+  - default_model
+  - skill_policy_ref
+  - tool_policy_ref
+  - sandbox_policy_ref
+  - memory_policy_ref
+  - checkpointer_policy_ref
+  - secret_ref_set
+  - deerflow_agent_defaults
+  - status
+  - version
+```
+
+执行面实例：
+
+```text
+RuntimeInstance
+  - runtime_instance_id
+  - runtime_profile_id
+  - deployment_mode      (local_process | container)
+  - config_bundle_ref
+  - deerflow_home_ref
+  - endpoint
+  - health_status
+  - capacity
+  - last_heartbeat_at
+```
+
+约束：
+
+- `RuntimeProfile` 是控制面可版本化资产，描述 DeerFlow 运行所需的完整配置意图。
+- `RuntimeInstance` 是执行面实体，负责承载一个具体 `DeerFlow Runtime Instance` 生命周期。
+- `mode`、`thinking_enabled`、`plan_mode`、`subagent_enabled` 仍属于会话级运行参数，不升级成独立 profile 文件。
+- `config.yaml` 不是控制面主数据，而是 `RuntimeProfile` 渲染后的执行产物。
+- 同一 `RuntimeProfile` 可以对应一个或多个 `RuntimeInstance`，以支持池化和扩缩容。
+
+### 4.7 短期方案：单本地 Runtime，启动时生成 Config
+
+MVP 阶段只允许一个本地 DeerFlow Runtime，但必须改成显式配置注入，而不是依赖当前工作目录探测。
+
+短期规则：
+
+- SwarmMind 启动时根据 `.env` 和默认 runtime profile 生成一份 DeerFlow config bundle。
+- Supervisor 通过显式 `DEER_FLOW_CONFIG_PATH` 和 `DEER_FLOW_HOME` 启动 DeerFlow 运行路径。
+- 临时会话与 Project 内会话统一走这一个 DeerFlow runtime。
+- DeerFlow Runtime 不可用时，本轮请求应返回明确的 runtime unavailable / config invalid 错误。
+- 失败后的恢复手段是修正配置并重启 Runtime，而不是降级到原生 `LLMClient` 或直连模型路径。
+
+短期不做：
+
+- 同进程多 DeerFlow config 并存。
+- 按会话动态挂载不同 `config.yaml`。
+- DeerFlow 故障时切换到第二执行内核。
+
+### 4.8 中期方案：多租户 Runtime Profile 与调度
+
+中期目标不是“一个进程里多个 DeerFlowClient 配置实例”，而是控制面管理多个 `RuntimeProfile`，再把会话调度到正确的 DeerFlow Runtime。
+
+调度规则：
+
+- `ChatSession` 默认绑定 `tenant default runtime profile`。
+- `Project` 绑定 `project runtime profile`，并允许在项目维度固定 thread 策略与 sandbox 策略。
+- `Strategy Table` 输出 `task_kind -> runtime_profile_id`，而不直接输出硬编码模型名。
+- `RuntimeProvisioner` 负责确保目标 `runtime_profile_id` 至少有一个健康 `RuntimeInstance` 可用。
+- `RunStore` 必须记录 `runtime_profile_id`、`runtime_instance_id`、`thread_id` 和 `deerflow_agent_name`。
+
+中期约束：
+
+- 同一租户下可有多个 runtime profile，但 secret 和 provider 配置必须受租户边界约束。
+- `RuntimeProfile` 的 provider、tool、sandbox、memory/checkpointer 配置统一由控制面持有，不允许前端直接拼装。
+- 会话只传运行参数和 profile 引用，不传完整 provider 密钥或大段 DeerFlow 原始配置。
+
+### 4.9 长期方案：Runtime Container
+
+长期目标是把 `DeerFlow Runtime Instance` 以 `Runtime Container` 形式运行，而不是在同一 Python 进程里承载多个互相覆盖的全局配置。
+
+每个 `Runtime Container` 至少具备：
+
+- 独立的 `config.yaml`
+- 独立的 `DEER_FLOW_HOME`
+- 独立的 thread / artifact / memory 工作目录
+- 独立注入的 provider secrets
+- 独立的 health check 与重启策略
+
+容器化规则：
+
+- 一个 `Runtime Container` 只承载一个 `RuntimeProfile` 版本对应的一个 `DeerFlow Runtime Instance`。
+- 容器内的 `config.yaml` 由控制面在启动前渲染，不要求人工维护多份静态模板。
+- 容器内状态只承载运行时缓存、threads、临时文件和 artifacts staging。
+- 长期控制面数据仍保留在 SwarmMind 的 `ProjectStore`、`RunStore`、`ArtifactStore`、`AuditLog` 等主库中。
+- checkpointer、artifact 持久化和审计索引应逐步外置到可恢复后端，而不是永久绑在容器本地磁盘。
+
+建议的隔离粒度：
+
+- MVP / 单机期：1 个本地 DeerFlow Runtime。
+- 成长阶段：按 `runtime_profile_id` 建立 Runtime 池。
+- 企业租户阶段：按 `tenant + runtime_profile_id` 建立隔离容器池。
+- 高治理项目：允许按 `project + runtime_profile_id` 做 sticky runtime 绑定。
+
+### 4.10 禁止的长期路线
+
+以下路线不进入主架构承诺：
+
+- 在同一 SwarmMind 进程里安全并行运行多套 DeerFlow 全局配置。
+- 让每个会话自行上传、覆盖或拼装完整 DeerFlow `config.yaml`。
+- 同时维护 DeerFlow 主执行链路和原生 `LLMClient` 降级执行链路。
+- 为多租户隔离而在控制面重复实现 DeerFlow 的 memory / tool / sandbox 子系统。
+
 ## 5. 控制面数据边界
 
 ### 5.1 ProjectStore
@@ -555,7 +794,7 @@ RuntimeNamespace
 ChatSession
   - chat_session_id
   - actor_id
-  - entry_mode          (direct_model | default_agent)
+  - runtime_profile_ref
   - title
   - title_status        (pending | generated | fallback | manual)
   - title_source        (llm | fallback | manual)
@@ -571,10 +810,10 @@ ChatSession
 约束：
 
 - `ChatSession` 默认是单用户私有入口，不是项目级共享空间。
-- 它允许使用直连模型或默认 Agent，但不默认承载 workflow 模板、审批和多成员治理。
+- 它统一绑定默认 DeerFlow runtime profile，不默认承载 workflow 模板、审批和多成员治理。
 - 标题属于 `ChatSessionStore` 元数据，不属于 `RunStore`，也不应只存在于前端内存里。
-- 标题生成应在首轮完整交换后触发，即至少有 1 条用户消息和 1 条 assistant 响应后再生成。
-- 标题默认优先由 LLM 生成；若生成失败，则退化为基于首条用户消息的截断 fallback。
+- 标题生成应在首轮完整 DeerFlow 交换后触发，即至少有 1 条用户消息和 1 条 assistant 响应后再生成。
+- 标题默认优先由运行时模型生成；若生成失败，则退化为基于首条用户消息的截断 fallback。
 - 标题一旦生成，后续不应在每轮运行后反复改写；用户手动改名优先级最高。
 - 若用户触发提升，`promoted_project_id` 必须建立与目标 `Project` 的映射。
 - 提升时应生成语义压缩摘要，并作为目标 `Project` 的文档资产落库。
@@ -641,7 +880,39 @@ RoleBinding
 - 权限控制先落在 `Project` 级 `RBAC`，再投影到 workflow、Run 和 Artifact 访问。
 - 不允许仅靠前端隐藏实现权限隔离，控制面必须按权限键做服务端校验。
 
-### 5.5 TaskStore
+### 5.5 RuntimeProfileStore
+
+`RuntimeProfileStore` 保存 DeerFlow runtime profile 及其可版本化配置边界。
+
+最小结构如下：
+
+```text
+RuntimeProfile
+  - runtime_profile_id
+  - tenant_scope
+  - display_name
+  - provider_type
+  - default_model
+  - model_catalog
+  - deerflow_agent_defaults
+  - tool_policy_ref
+  - sandbox_policy_ref
+  - skill_policy_ref
+  - memory_policy_ref
+  - checkpointer_policy_ref
+  - secret_ref_set
+  - version
+  - status
+```
+
+约束：
+
+- `RuntimeProfileStore` 是 DeerFlow 运行配置的唯一控制面真相源。
+- `config.yaml`、extensions config、secret env 注入都应由 `RuntimeProfileStore` 派生产生。
+- `RuntimeProfile` 必须支持版本冻结，避免运行中的项目被隐式升级到底层新配置。
+- 租户无权直接操作宿主机路径、容器挂载或原始 secret 明文。
+
+### 5.6 TaskStore
 
 `TaskStore` 只保存可被控制面解释和回放的轻量元数据，例如：
 
@@ -661,7 +932,7 @@ RoleBinding
 - 不保存完整 DeerFlow memory 快照。
 - 不保存大文件内容。
 
-### 5.6 RunStore
+### 5.7 RunStore
 
 `RunStore` 保存可回放的运行事实层，用于承接 `stream`、`partial`、tool 调用摘要和状态迁移。
 
@@ -674,6 +945,8 @@ RunRecord
   - project_team_instance_id
   - task_id
   - actor_id
+  - runtime_profile_id
+  - runtime_instance_id
   - selected_profile
   - deerflow_agent_name
   - thread_id
@@ -691,7 +964,7 @@ RunRecord
 - 长日志、完整流式输出和大 payload 仍放入 artifact。
 - `partial`、`cancelled` 和失败原因必须在 `RunStore` 中可查询。
 
-### 5.7 ArtifactStore
+### 5.8 ArtifactStore
 
 `ArtifactStore` 是 DeerFlow 输出结果的主承载层。
 
@@ -707,7 +980,7 @@ RunRecord
 
 - 控制面只保存 artifact 索引，不复制大内容到 TaskStore 或 AuditLog。
 
-### 5.8 WorkflowAssetStore
+### 5.9 WorkflowAssetStore
 
 `WorkflowAssetStore` 保存可跨项目复用的工作流知识资产。
 
@@ -726,7 +999,7 @@ RunRecord
 - `Project` 只引用资产版本，而不拥有其源资产。
 - 如需为项目冻结上下文，可在 `Project` 内保存引用快照或派生副本。
 
-### 5.9 AuditLog
+### 5.10 AuditLog
 
 `AuditLog` 只保留关键决策和运行轨迹，不做全量事件归档仓库。
 
@@ -741,6 +1014,7 @@ RunRecord
 - 产生了哪些 artifact 引用。
 - 使用了哪个 `project_team_instance_id`。
 - 使用了哪个 `selected_profile` 和 `deerflow_agent_name`。
+- 使用了哪个 `runtime_profile_id` 和 `runtime_instance_id`。
 
 不纳入强审计的内容：
 
@@ -748,7 +1022,7 @@ RunRecord
 - DeerFlow memory.json 的逐字段变更历史。
 - DeerFlow 异步 summarization 的中间过程。
 
-### 5.10 Workflow Knowledge Assets
+### 5.11 Workflow Knowledge Assets
 
 Workflow 知识资产属于控制面知识层，不属于 DeerFlow runtime memory。
 
@@ -764,7 +1038,7 @@ Workflow 知识资产属于控制面知识层，不属于 DeerFlow runtime memor
 - 允许通过复盘沉淀新的知识包。
 - 不允许自动写成 DeerFlow memory。
 
-### 5.11 ProfileManager
+### 5.12 ProfileManager
 
 `ProfileManager` 是可选控制面能力，不属于 DeerFlow 运行主闭环。
 
@@ -781,7 +1055,7 @@ Workflow 知识资产属于控制面知识层，不属于 DeerFlow runtime memor
 - DeerFlow 只能接收经过投影和筛选后的少量偏好字段。
 - `untrusted remote` 不得获得完整 profile 快照。
 
-### 5.12 Deferred: LayeredMemory
+### 5.13 Deferred: LayeredMemory
 
 `LayeredMemory` 不属于主架构承诺，不进入 DeerFlow 主执行路径。
 
@@ -793,7 +1067,7 @@ Workflow 知识资产属于控制面知识层，不属于 DeerFlow runtime memor
 
 在满足以上条件前，不实现、不接线、不作为主方案依赖。
 
-### 5.13 约束优先级
+### 5.14 约束优先级
 
 同一轮运行中，规则优先级固定为：
 
@@ -954,6 +1228,25 @@ member request
 pending | running | success | partial | failure | cancelled
 ```
 
+### 6.7 跨业务场景边界
+
+当前主架构不只面向软件研发，也要能承接营销 campaign、招聘推进、法务审查、采购引入这类正式业务协作。
+
+这些场景的共同约束是：
+
+- 都需要明确的 `Project` 边界。
+- 都可能需要 `Agent Team` 作为产品层协作入口。
+- 都可能涉及审批、敏感资料、排期或多成员连续推进。
+- 都应统一沉淀到 `Run`、`Artifact`、`AuditLog`，而不是退化成零散聊天记录。
+
+因此跨场景扩展遵循以下约束：
+
+- 不为某个业务域额外引入第二套执行内核。
+- 不恢复 `TeamInterfaceAgent` 这类独立接口人运行时设定。
+- 不因为业务域不同而改变 `AgentTeamTemplate -> ProjectAgentTeamInstance -> DeerFlow Runtime` 的主映射关系。
+
+如果未来某个业务域确实需要更强的一等对象，例如候选人、面试排期、合同、供应商等，应按 `Project` 作用域追加领域对象与控制面视图，而不是新建平行 runtime 或平行项目壳。
+
 ## 7. 路由与审批
 
 ### 7.1 路由收敛
@@ -1034,16 +1327,19 @@ RunApproval
 ### 阶段 A
 
 - 明确 DeerFlow 是唯一核心执行内核。
-- 建立轻量 `ChatSession`，支持直连模型或默认 Agent 的会话入口。
+- 建立轻量 `ChatSession`，统一通过默认 DeerFlow runtime profile 提供会话入口。
 - 建立 `Project` 作为顶层工作空间实体。
 - 建立 `DeerFlow Gateway`，优先承接 `chat/stream/thread/artifact/upload/skill` 能力。
 - 建立 `task_kind -> DeerFlowRuntimeProfile` 的策略表。
+- 建立单本地 Runtime 的 config 生成与显式注入机制，不依赖 cwd 搜索 `config.yaml`。
+- 明确 DeerFlow 故障按 fail-fast 处理，通过修复配置和重启 Runtime 恢复，不增加原生 LLM fallback。
 - 明确不引入 `AgentInterface`。
 
 ### 阶段 B
 
 - 建立 `ProjectStore`，把任务、审批、artifact、audit 全部挂到 `project_id`。
 - 建立 `ChatSessionStore` 和 `Promote to Project` 流程。
+- 建立 `RuntimeProfileStore` 与 `RuntimeProvisioner`。
 - 建立基于 `RBAC` 的 `ProjectMemberStore` 和 `RunStore`。
 - 明确 thread、artifact、upload 是一等结果，不只返回文本。
 - 正式以 DeerFlow memory 作为唯一长期记忆来源。
@@ -1056,12 +1352,14 @@ RunApproval
 - 建立 `WorkflowTemplate` 与 `WorkflowAssetStore`。
 - 建立 `TaskStore`、`RunStore`、`ArtifactStore`、`AuditLog`。
 - 把 DeerFlow 结果稳定映射到 SwarmMind 的回放与审计视图。
+- 按 `runtime_profile_id` 建立可复用 DeerFlow Runtime 池。
 - 仅在真实高风险场景下接入最小审批层。
 
 ### 阶段 D
 
 - 将 Router 从关键词规则升级到 embedding 或 classifier。
 - 在控制面增加 `ProfileManager` 与字段级投影策略。
+- 把 DeerFlow Runtime 演进到容器化 worker，并按 `tenant + runtime_profile_id` 提供隔离池。
 - DeerFlow 路线稳定后，再评估是否需要补充更强的 workflow 模型，但不预设第二执行引擎。
 
 ## 10. 目标目录建议
