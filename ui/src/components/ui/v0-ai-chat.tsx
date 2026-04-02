@@ -139,6 +139,9 @@ const QUICK_PROMPTS = [
   "总结当前续费风险，并给出 3 条行动建议。",
 ];
 
+const MODEL_FETCH_RETRY_COUNT = 3;
+const MODEL_FETCH_RETRY_DELAY_MS = 400;
+
 const MODE_OPTIONS: Array<{
   id: ConversationMode;
   label: string;
@@ -163,7 +166,7 @@ const MODE_OPTIONS: Array<{
   {
     id: "pro",
     label: "Pro",
-    description: "默认模式，先规划再执行",
+    description: "先规划再执行",
     accentClassName: "from-[#dff5eb] via-[#eefbf4] to-white text-[#0d6b4b] border-[#bfe7d3]",
     icon: GraduationCap,
   },
@@ -176,7 +179,7 @@ const MODE_OPTIONS: Array<{
   },
 ];
 
-const DEFAULT_MODE: ConversationMode = "pro";
+const DEFAULT_MODE: ConversationMode = "flash";
 const DEFAULT_MODEL = "";
 
 function generateId() {
@@ -378,27 +381,36 @@ function ModelPicker({
   selected,
   onSelect,
   isLoading,
+  loadError,
+  onRetry,
 }: {
   models: RuntimeModelOption[];
   selected: string;
   onSelect: (id: string) => void;
   isLoading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const current = models.find((model) => model.name === selected) ?? models[0];
-  const currentLabel = current?.display_name || current?.name || (isLoading ? "加载模型..." : "未配置模型");
-  const isDisabled = isLoading || models.length <= 1;
+  const currentLabel = current?.display_name || current?.name || (isLoading ? "加载模型..." : loadError ? "模型加载失败" : "未配置模型");
+  const isDisabled = isLoading || (!loadError && models.length <= 1);
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={() => {
+          if (loadError) {
+            onRetry();
+            return;
+          }
           if (!isDisabled) {
             setOpen((prev) => !prev);
           }
         }}
         disabled={isDisabled}
+        title={loadError ?? undefined}
         className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <Sparkles className="size-3.5" />
@@ -502,6 +514,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
   const [defaultModel, setDefaultModel] = useState(DEFAULT_MODEL);
   const [modelOptions, setModelOptions] = useState<RuntimeModelOption[]>([]);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
+  const [modelLoadError, setModelLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(conversationId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -518,26 +531,41 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
 
   const fetchModels = useCallback(async () => {
     setIsModelsLoading(true);
-    try {
-      const response = await fetch("/models");
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = (await response.json()) as RuntimeModelCatalogResponse;
-      const nextModels = data.models ?? [];
-      const nextDefaultModel = data.default_model ?? nextModels[0]?.name ?? DEFAULT_MODEL;
-      setModelOptions(nextModels);
-      setDefaultModel(nextDefaultModel);
-      setSelectedModel((current) => {
-        if (current && nextModels.some((model) => model.name === current)) {
-          return current;
+    setModelLoadError(null);
+
+    for (let attempt = 1; attempt <= MODEL_FETCH_RETRY_COUNT; attempt += 1) {
+      try {
+        const response = await fetch("/models");
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
-        return nextDefaultModel;
-      });
-    } catch (requestError) {
-      console.error("Failed to fetch runtime models:", requestError);
-    } finally {
-      setIsModelsLoading(false);
+        const data = (await response.json()) as RuntimeModelCatalogResponse;
+        const nextModels = data.models ?? [];
+        const nextDefaultModel = data.default_model ?? nextModels[0]?.name ?? DEFAULT_MODEL;
+        setModelOptions(nextModels);
+        setDefaultModel(nextDefaultModel);
+        setSelectedModel((current) => {
+          if (current && nextModels.some((model) => model.name === current)) {
+            return current;
+          }
+          return nextDefaultModel;
+        });
+        setModelLoadError(nextModels.length === 0 ? "当前未分配可用模型" : null);
+        setIsModelsLoading(false);
+        return;
+      } catch (requestError) {
+        if (attempt === MODEL_FETCH_RETRY_COUNT) {
+          console.error("Failed to fetch runtime models:", requestError);
+          setModelOptions([]);
+          setDefaultModel(DEFAULT_MODEL);
+          setSelectedModel(DEFAULT_MODEL);
+          setModelLoadError(requestError instanceof Error ? requestError.message : "模型加载失败");
+          setIsModelsLoading(false);
+          return;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, MODEL_FETCH_RETRY_DELAY_MS * attempt));
+      }
     }
   }, []);
 
@@ -580,6 +608,18 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
   useEffect(() => {
     void fetchModels();
   }, [fetchModels]);
+
+  useEffect(() => {
+    if (!modelLoadError || modelOptions.length > 0) {
+      return;
+    }
+
+    const retryTimer = window.setTimeout(() => {
+      void fetchModels();
+    }, 3000);
+
+    return () => window.clearTimeout(retryTimer);
+  }, [fetchModels, modelLoadError, modelOptions.length]);
 
   useEffect(() => {
     void fetchConversations();
@@ -852,6 +892,10 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
     async (prompt?: string) => {
       const text = (prompt ?? input).trim();
       if (!text || isLoading) return;
+      if (!selectedModel) {
+        setError(modelLoadError ?? "当前未分配可用模型，无法发起会话");
+        return;
+      }
 
       if (!prompt) setInput("");
 
@@ -889,10 +933,11 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
         }));
       }
     },
-    [createConversation, currentConversationId, fetchConversations, input, isLoading, selectedMode, selectedModel, streamConversation],
+    [createConversation, currentConversationId, fetchConversations, input, isLoading, modelLoadError, selectedMode, selectedModel, streamConversation],
   );
 
   const isEmpty = messages.length === 0 && !isLoading;
+  const isComposerDisabled = isLoading || isModelsLoading || !selectedModel;
   const currentModeOption = MODE_OPTIONS.find((mode) => mode.id === selectedMode) ?? MODE_OPTIONS[0];
 
   return (
@@ -975,9 +1020,9 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
                 void handleSubmit();
               }
             }}
-            placeholder="输入问题或任务..."
+            placeholder={isModelsLoading ? "正在加载模型..." : selectedModel ? "输入问题或任务..." : "当前没有可用模型，暂时无法开始会话"}
             className="min-h-[100px] resize-none border-none bg-transparent px-5 py-4 text-[15px] focus-visible:ring-0"
-            disabled={isLoading}
+            disabled={isComposerDisabled}
           />
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
             <div className="flex items-center gap-1">
@@ -1003,10 +1048,14 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
                 selected={selectedModel}
                 onSelect={setSelectedModel}
                 isLoading={isModelsLoading}
+                loadError={modelLoadError}
+                onRetry={() => {
+                  void fetchModels();
+                }}
               />
               <Button
                 onClick={() => void handleSubmit()}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isComposerDisabled}
                 size="icon-sm"
                 className="rounded-lg"
               >

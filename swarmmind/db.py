@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from swarmmind.config import DB_PATH
+from swarmmind.prompting import SWARMMIND_PRODUCT_IDENTITY_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -331,9 +332,7 @@ def seed_default_agents() -> None:
             (
                 "general",
                 "general",
-                "You are SwarmMind, an AIOS system developed by Beijing Rongxin Zhizhi Technology Co., Ltd. "
-                "You are the next-generation AI Operating System, designed to assist users with "
-                "intelligent task management, creative problem solving, and advanced reasoning capabilities.",
+                SWARMMIND_PRODUCT_IDENTITY_PROMPT,
             ),
             (
                 "unknown",
@@ -344,7 +343,13 @@ def seed_default_agents() -> None:
 
         for agent_id, domain, system_prompt in agents:
             cursor.execute(
-                "INSERT OR IGNORE INTO agents (agent_id, domain, system_prompt) VALUES (?, ?, ?)",
+                """
+                INSERT INTO agents (agent_id, domain, system_prompt)
+                VALUES (?, ?, ?)
+                ON CONFLICT(agent_id) DO UPDATE SET
+                    domain = excluded.domain,
+                    system_prompt = excluded.system_prompt
+                """,
                 (agent_id, domain, system_prompt),
             )
 

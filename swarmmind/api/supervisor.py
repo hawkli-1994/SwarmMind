@@ -19,7 +19,7 @@ from swarmmind.context_broker import (
     dispatch,
     record_supervisor_decision,
 )
-from swarmmind.db import get_connection, init_db, seed_default_agents
+from swarmmind.db import get_connection, health_check, init_db, seed_default_agents
 from swarmmind.models import (
     ActionProposal,
     ApproveRequest,
@@ -1150,7 +1150,8 @@ if __name__ == "__main__":
 
     # Initialize database on startup
     logger.info("Initializing SwarmMind database...")
-    health = init_db()
+    init_db()
+    health = health_check()
     if health["status"] == "healed":
         logger.info("Database healed and initialized with new schema.")
     else:

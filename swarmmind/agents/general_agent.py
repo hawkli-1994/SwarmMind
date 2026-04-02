@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Generator
 from typing import Any
 
+import deerflow.client as deerflow_client_module
 from deerflow.client import DeerFlowClient
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
@@ -19,10 +20,68 @@ from swarmmind.agents.base import BaseAgent
 from swarmmind.context_broker import update_proposal_result
 from swarmmind.db import get_connection
 from swarmmind.models import ActionProposal, ConversationRuntimeOptions, MemoryContext
+from swarmmind.prompting import rewrite_swarmmind_identity_prompt
 from swarmmind.runtime import RuntimeExecutionError, ensure_default_runtime_instance
 from swarmmind.runtime.models import RuntimeInstance
 
 logger = logging.getLogger(__name__)
+
+
+class SwarmMindDeerFlowClient(DeerFlowClient):
+    """DeerFlow client wrapper that injects SwarmMind product identity."""
+
+    def __init__(self, *args, system_prompt: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._swarmmind_system_prompt = system_prompt
+
+    def _ensure_agent(self, config):
+        """Create the underlying DeerFlow agent with SwarmMind branding."""
+        cfg = config.get("configurable", {})
+        key = (
+            cfg.get("model_name"),
+            cfg.get("thinking_enabled"),
+            cfg.get("is_plan_mode"),
+            cfg.get("subagent_enabled"),
+        )
+
+        if self._agent is not None and self._agent_config_key == key:
+            return
+
+        thinking_enabled = cfg.get("thinking_enabled", True)
+        model_name = cfg.get("model_name")
+        subagent_enabled = cfg.get("subagent_enabled", False)
+        max_concurrent_subagents = cfg.get("max_concurrent_subagents", 3)
+
+        base_prompt = deerflow_client_module.apply_prompt_template(
+            subagent_enabled=subagent_enabled,
+            max_concurrent_subagents=max_concurrent_subagents,
+            agent_name=self._agent_name,
+        )
+        system_prompt = rewrite_swarmmind_identity_prompt(base_prompt, self._swarmmind_system_prompt)
+
+        kwargs: dict[str, Any] = {
+            "model": deerflow_client_module.create_chat_model(name=model_name, thinking_enabled=thinking_enabled),
+            "tools": self._get_tools(model_name=model_name, subagent_enabled=subagent_enabled),
+            "middleware": deerflow_client_module._build_middlewares(
+                config,
+                model_name=model_name,
+                agent_name=self._agent_name,
+                custom_middlewares=self._middlewares,
+            ),
+            "system_prompt": system_prompt,
+            "state_schema": deerflow_client_module.ThreadState,
+        }
+        checkpointer = self._checkpointer
+        if checkpointer is None:
+            from deerflow.agents.checkpointer import get_checkpointer
+
+            checkpointer = get_checkpointer()
+        if checkpointer is not None:
+            kwargs["checkpointer"] = checkpointer
+
+        self._agent = deerflow_client_module.create_agent(**kwargs)
+        self._agent_config_key = key
+        logger.info("SwarmMind agent created: agent_name=%s, model=%s, thinking=%s", self._agent_name, model_name, thinking_enabled)
 
 
 class GeneralAgent(BaseAgent):
@@ -51,12 +110,13 @@ class GeneralAgent(BaseAgent):
         self._subagent_enabled = subagent_enabled
         self._plan_mode = plan_mode
 
-        self._client: DeerFlowClient = DeerFlowClient(
+        self._client: DeerFlowClient = SwarmMindDeerFlowClient(
             config_path=self._config_path,
             model_name=default_model,
             thinking_enabled=thinking_enabled,
             subagent_enabled=subagent_enabled,
             plan_mode=plan_mode,
+            system_prompt=self._system_prompt,
         )
 
     @property
