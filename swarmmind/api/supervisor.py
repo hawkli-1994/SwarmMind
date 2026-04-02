@@ -45,7 +45,7 @@ from swarmmind.models import (
     SupervisorDecision,
 )
 from swarmmind.renderer import generate_conversation_title_from_exchange, render_status
-from swarmmind.agents.general_agent import GeneralAgent
+from swarmmind.agents.general_agent import DeerFlowRuntimeAdapter
 from swarmmind.runtime import RuntimeConfigError, RuntimeExecutionError, RuntimeUnavailableError, ensure_default_runtime_instance
 from swarmmind.runtime.catalog import (
     ANONYMOUS_SUBJECT_ID,
@@ -924,14 +924,14 @@ def send_message(conversation_id: str, body: SendMessageRequest):
 
     try:
         runtime_instance, _thread_id = _bind_conversation_runtime(conversation_id)
-        general_agent = GeneralAgent(
+        runtime_adapter = DeerFlowRuntimeAdapter(
             runtime_instance=runtime_instance,
             default_model=runtime_options.model_name,
             thinking_enabled=runtime_options.thinking_enabled,
             subagent_enabled=runtime_options.subagent_enabled,
             plan_mode=runtime_options.plan_mode,
         )
-        completed_proposal = general_agent.act(
+        completed_proposal = runtime_adapter.act(
             body.content,
             proposal_id,
             ctx=memory_ctx,
@@ -939,7 +939,7 @@ def send_message(conversation_id: str, body: SendMessageRequest):
         )
         ai_response = completed_proposal.description
     except Exception as e:
-        logger.error("GeneralAgent execution error: %s", e)
+        logger.error("DeerFlowRuntimeAdapter execution error: %s", e)
         ai_response = _format_runtime_error(e)
 
     # Save assistant response
@@ -1053,7 +1053,7 @@ def _stream_conversation_message(conversation_id: str, body: SendMessageRequest)
         record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
 
         runtime_instance, _thread_id = _bind_conversation_runtime(conversation_id)
-        general_agent = GeneralAgent(
+        runtime_adapter = DeerFlowRuntimeAdapter(
             runtime_instance=runtime_instance,
             default_model=runtime_options.model_name,
             thinking_enabled=runtime_options.thinking_enabled,
@@ -1067,7 +1067,7 @@ def _stream_conversation_message(conversation_id: str, body: SendMessageRequest)
             label=running_label,
         )
 
-        stream = general_agent.stream_events(
+        stream = runtime_adapter.stream_events(
             body.content,
             ctx=memory_ctx,
             runtime_options=runtime_options,

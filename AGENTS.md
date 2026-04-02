@@ -49,7 +49,7 @@ swarmmind/                         ← Python package root
 ├── renderer.py                    ✅ LLM Status Renderer
 ├── agents/
 │   ├── base.py                    ✅ BaseAgent (abstract base with memory utilities)
-│   └── general_agent.py           ✅ GeneralAgent (DeerFlow-driven, handles uncategorized tasks)
+│   └── general_agent.py           ✅ DeerFlowRuntimeAdapter (DeerFlow-driven adapter, compat alias: GeneralAgent)
 ├── runtime/
 │   ├── bootstrap.py               ✅ DeerFlow Runtime bootstrap + config generation
 │   ├── profile.py                 ✅ RuntimeProfile management
@@ -83,7 +83,7 @@ tests/
 - [x] Pydantic models for all database tables
 - [x] SharedMemory (KV store + conflict resolution)
 - [x] ContextBroker (dispatch + keyword routing + strategy table)
-- [x] Agent Adapters (BaseAgent, GeneralAgent)
+- [x] Agent Adapters (BaseAgent, DeerFlowRuntimeAdapter)
 - [x] DeerFlow Runtime bootstrap + config generation
 - [x] Runtime profile + model catalog
 - [x] Supervisor API (REST endpoints)

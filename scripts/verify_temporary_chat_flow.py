@@ -1,6 +1,6 @@
 """Smoke-test the temporary chat backend flow via FastAPI TestClient.
 
-This script exercises the real HTTP endpoints with a stubbed GeneralAgent so
+This script exercises the real HTTP endpoints with a stubbed DeerFlowRuntimeAdapter so
 the mode contract, persistence, and streaming event translation can be
 verified without external model calls.
 """
@@ -25,7 +25,7 @@ from swarmmind.api import supervisor
 from swarmmind.models import ConversationMode
 
 
-class FakeGeneralAgent:
+class FakeDeerFlowRuntimeAdapter:
     """Deterministic DeerFlow stand-in for backend flow verification."""
 
     def __init__(self, *args, **kwargs):
@@ -77,14 +77,14 @@ class FakeGeneralAgent:
 
 @contextmanager
 def patched_backend() -> Iterator[None]:
-    original_general_agent = supervisor.GeneralAgent
+    original_runtime_adapter = supervisor.DeerFlowRuntimeAdapter
     original_derive_situation_tag = supervisor.derive_situation_tag
     original_title_generator = supervisor.generate_conversation_title_from_exchange
     original_db_path = os.environ.get("SWARMMIND_DB_PATH")
 
     with tempfile.TemporaryDirectory() as tempdir:
         os.environ["SWARMMIND_DB_PATH"] = os.path.join(tempdir, "smoke-test.db")
-        supervisor.GeneralAgent = FakeGeneralAgent
+        supervisor.DeerFlowRuntimeAdapter = FakeDeerFlowRuntimeAdapter
         supervisor.derive_situation_tag = lambda _: "unknown"
         supervisor.generate_conversation_title_from_exchange = lambda user_message, assistant_message: (
             f"Smoke {user_message[:12]}",
@@ -93,7 +93,7 @@ def patched_backend() -> Iterator[None]:
         try:
             yield
         finally:
-            supervisor.GeneralAgent = original_general_agent
+            supervisor.DeerFlowRuntimeAdapter = original_runtime_adapter
             supervisor.derive_situation_tag = original_derive_situation_tag
             supervisor.generate_conversation_title_from_exchange = original_title_generator
             if original_db_path is None:

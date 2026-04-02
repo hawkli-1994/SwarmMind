@@ -110,7 +110,7 @@
 
 以下表达禁止继续在主架构文档中作为正式术语使用：
 
-- `Agent`：除非后面明确跟上 `Team`、`Lead Agent`、`Subagent`、`GeneralAgent Adapter` 等限定词，否则不得单独使用。
+- `Agent`：除非后面明确跟上 `Team`、`Lead Agent`、`Subagent`、`DeerFlowRuntimeAdapter` 等限定词，否则不得单独使用。
 - `deer-flow agent 实例`：统一改为 `DeerFlow Runtime Instance`。
 - `deer-flow 容器实例`：统一改为 `Runtime Container`，并明确它对应一个 `DeerFlow Runtime Instance`。
 - `线程`：如果指的是 DeerFlow 上下文锚点，统一写 `thread`；如果指操作系统线程，不得混写。
@@ -119,7 +119,7 @@
 
 现有代码中若出现如下命名，应按下列方式理解：
 
-- `GeneralAgent`、`FinanceAgent`、`CodeReviewAgent`：这是 SwarmMind 控制面中的适配器/入口组件，不等于 `DeerFlow Runtime Instance`。
+- `DeerFlowRuntimeAdapter`、`FinanceAgent`、`CodeReviewAgent`：这是 SwarmMind 控制面中的适配器/入口组件，不等于 `DeerFlow Runtime Instance`。旧代码里的 `GeneralAgent` 可按 `DeerFlowRuntimeAdapter` 理解。
 - `DeerFlowClient`：这是 DeerFlow 的嵌入式调用客户端，不等于 `Lead Agent`，也不等于 `RuntimeProfile`。
 - `lead-agent + subagents`：这是 DeerFlow Runtime 内部协作结构，不等于产品层 Team 模板。
 

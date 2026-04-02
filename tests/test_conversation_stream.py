@@ -20,7 +20,7 @@ def setup_db(tmp_path, monkeypatch):
     yield
 
 
-class FakeGeneralAgent:
+class FakeDeerFlowRuntimeAdapter:
     init_calls: list[dict] = []
     stream_runtime_options: list[object] = []
 
@@ -74,8 +74,8 @@ class FakeGeneralAgent:
 
 @pytest.fixture(autouse=True)
 def reset_fake_general_agent():
-    FakeGeneralAgent.init_calls = []
-    FakeGeneralAgent.stream_runtime_options = []
+    FakeDeerFlowRuntimeAdapter.init_calls = []
+    FakeDeerFlowRuntimeAdapter.stream_runtime_options = []
     yield
 
 
@@ -103,7 +103,7 @@ def _conversation_row(conversation_id: str):
 
 
 def test_streaming_chat_session_emits_runtime_events_and_persists_messages(monkeypatch):
-    monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
+    monkeypatch.setattr(supervisor, "DeerFlowRuntimeAdapter", FakeDeerFlowRuntimeAdapter)
     monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "unknown")
     monkeypatch.setattr(
         supervisor,
@@ -159,7 +159,7 @@ def test_streaming_chat_session_emits_runtime_events_and_persists_messages(monke
     assert title_event["conversation"]["title"] == "CRM 探索"
     assert title_event["conversation"]["title_status"] == "generated"
     assert _conversation_message_count(conversation.id) == 2
-    assert FakeGeneralAgent.stream_runtime_options[-1].mode == ConversationMode.ULTRA
+    assert FakeDeerFlowRuntimeAdapter.stream_runtime_options[-1].mode == ConversationMode.ULTRA
     conversation_row = _conversation_row(conversation.id)
     assert conversation_row["runtime_profile_id"] == "local-default"
     assert conversation_row["runtime_instance_id"] == "local-default-instance"
@@ -223,7 +223,7 @@ def test_resolve_runtime_options(message_request, expected_mode, expected_thinki
 
 
 def test_flash_mode_suppresses_reasoning_and_team_events(monkeypatch):
-    monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
+    monkeypatch.setattr(supervisor, "DeerFlowRuntimeAdapter", FakeDeerFlowRuntimeAdapter)
     monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "unknown")
 
     conversation = supervisor.create_conversation(
@@ -242,11 +242,11 @@ def test_flash_mode_suppresses_reasoning_and_team_events(monkeypatch):
     assert not any(event["type"] == "team_task" for event in events)
     assert not any(event["type"] == "team_activity" for event in events)
     assert any(event["type"] == "assistant_final" for event in events)
-    assert FakeGeneralAgent.stream_runtime_options[-1].mode == ConversationMode.FLASH
+    assert FakeDeerFlowRuntimeAdapter.stream_runtime_options[-1].mode == ConversationMode.FLASH
 
 
 def test_reasoning_compatibility_uses_thinking_mode_without_team_events(monkeypatch):
-    monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
+    monkeypatch.setattr(supervisor, "DeerFlowRuntimeAdapter", FakeDeerFlowRuntimeAdapter)
     monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "unknown")
 
     conversation = supervisor.create_conversation(
@@ -264,4 +264,4 @@ def test_reasoning_compatibility_uses_thinking_mode_without_team_events(monkeypa
     assert any(event["type"] == "thinking" for event in events)
     assert not any(event["type"] == "team_task" for event in events)
     assert not any(event["type"] == "team_activity" for event in events)
-    assert FakeGeneralAgent.stream_runtime_options[-1].mode == ConversationMode.THINKING
+    assert FakeDeerFlowRuntimeAdapter.stream_runtime_options[-1].mode == ConversationMode.THINKING

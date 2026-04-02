@@ -1,7 +1,6 @@
-"""GeneralAgent — Default DeerFlow-powered agent for unclassified goals.
+"""DeerFlowRuntimeAdapter — SwarmMind's DeerFlow runtime adapter.
 
-Handles any goal that doesn't match a specialized agent.
-Uses DeerFlow's full tool ecosystem (web search, file I/O, bash, etc.)
+Bridges SwarmMind control-plane calls to an embedded DeerFlow runtime instance.
 """
 
 from __future__ import annotations
@@ -84,8 +83,8 @@ class SwarmMindDeerFlowClient(DeerFlowClient):
         logger.info("SwarmMind agent created: agent_name=%s, model=%s, thinking=%s", self._agent_name, model_name, thinking_enabled)
 
 
-class GeneralAgent(BaseAgent):
-    """Default agent wrapping DeerFlowClient.
+class DeerFlowRuntimeAdapter(BaseAgent):
+    """SwarmMind adapter around DeerFlowClient.
 
     Handles any goal that doesn't match a specialized agent.
     Uses DeerFlow's full tool ecosystem (web search, file I/O, bash, etc.)
@@ -121,7 +120,7 @@ class GeneralAgent(BaseAgent):
 
     @property
     def domain_tags(self) -> list[str]:
-        """GeneralAgent reads no specific domain tags (catch-all fallback)."""
+        """The runtime adapter reads no specific domain tags (catch-all fallback)."""
         return []
 
     def act(
@@ -137,7 +136,7 @@ class GeneralAgent(BaseAgent):
         text response, updates the proposal, and writes results to memory.
         """
         logger.info(
-            "GeneralAgent acting on goal=%r proposal_id=%s",
+            "DeerFlowRuntimeAdapter acting on goal=%r proposal_id=%s",
             goal[:100], action_proposal_id,
         )
 
@@ -151,7 +150,7 @@ class GeneralAgent(BaseAgent):
             logger.error("DeerFlow stream error: %s", e)
             self._create_rejected_proposal(
                 action_proposal_id,
-                f"GeneralAgent DeerFlow error: {e}",
+                f"DeerFlowRuntimeAdapter error: {e}",
             )
             raise RuntimeExecutionError(str(e)) from e
 
@@ -200,7 +199,7 @@ class GeneralAgent(BaseAgent):
             )
 
         logger.info(
-            "GeneralAgent completed: proposal_id=%s text_length=%d",
+            "DeerFlowRuntimeAdapter completed: proposal_id=%s text_length=%d",
             action_proposal_id, len(final_text),
         )
 
@@ -236,7 +235,8 @@ class GeneralAgent(BaseAgent):
         )
         self._client._ensure_agent(config)
 
-        state: dict[str, Any] = {"messages": [HumanMessage(content=goal)]}
+        current_user_message_id = str(uuid.uuid4())
+        state: dict[str, Any] = {"messages": [HumanMessage(content=goal, id=current_user_message_id)]}
         runtime_context = {"thread_id": thread_id}
 
         seen_ids: set[str] = set()
@@ -250,8 +250,22 @@ class GeneralAgent(BaseAgent):
             stream_mode="values",
         ):
             messages = chunk.get("messages", [])
+            turn_anchor_index = next(
+                (
+                    index
+                    for index, message in enumerate(messages)
+                    if isinstance(message, HumanMessage) and getattr(message, "id", None) == current_user_message_id
+                ),
+                -1,
+            )
 
-            for msg in messages:
+            if turn_anchor_index == -1:
+                continue
+
+            for msg in messages[turn_anchor_index + 1 :]:
+                if isinstance(msg, HumanMessage):
+                    continue
+
                 msg_id = getattr(msg, "id", None)
                 if msg_id and msg_id in seen_ids:
                     continue
@@ -361,3 +375,8 @@ class GeneralAgent(BaseAgent):
                 return "\n\n".join(reasoning_parts)
 
         return None
+
+
+# Backward-compatible alias retained while call sites migrate away from the
+# misleading "GeneralAgent" name.
+GeneralAgent = DeerFlowRuntimeAdapter

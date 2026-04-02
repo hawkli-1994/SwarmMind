@@ -23,7 +23,7 @@ class FakeProposal:
         self.description = description
 
 
-class FakeGeneralAgent:
+class FakeDeerFlowRuntimeAdapter:
     def __init__(self, *args, **kwargs):
         pass
 
@@ -53,7 +53,7 @@ class TestConversationTitles:
         assert conversation.title_generated_at is None
 
     def test_first_complete_exchange_generates_title(self, monkeypatch):
-        monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
+        monkeypatch.setattr(supervisor, "DeerFlowRuntimeAdapter", FakeDeerFlowRuntimeAdapter)
         monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(context_broker, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(
@@ -80,7 +80,7 @@ class TestConversationTitles:
     def test_subsequent_messages_do_not_regenerate_title(self, monkeypatch):
         calls: list[tuple[str, str]] = []
 
-        monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
+        monkeypatch.setattr(supervisor, "DeerFlowRuntimeAdapter", FakeDeerFlowRuntimeAdapter)
         monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(context_broker, "derive_situation_tag", lambda _: "finance")
 
@@ -113,7 +113,7 @@ class TestConversationTitles:
         assert len(calls) == 1
 
     def test_title_generation_falls_back_when_llm_fails(self, monkeypatch):
-        monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
+        monkeypatch.setattr(supervisor, "DeerFlowRuntimeAdapter", FakeDeerFlowRuntimeAdapter)
         monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(context_broker, "derive_situation_tag", lambda _: "finance")
 

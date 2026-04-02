@@ -1013,7 +1013,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
               ...next[index],
               content: event.content,
               isStreaming: true,
-              isReasoningStreaming: false,
+              isReasoningStreaming: next[index].isReasoningStreaming,
             };
             return next;
           }
@@ -1026,7 +1026,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
               id: event.message_id,
               content: event.content,
               isStreaming: true,
-              isReasoningStreaming: false,
+              isReasoningStreaming: next[activeAssistantIndex].isReasoningStreaming,
             };
             return next;
           }
