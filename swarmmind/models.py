@@ -186,6 +186,9 @@ class Conversation(BaseModel):
     title_status: str = "pending"
     title_source: str | None = None
     title_generated_at: str | None = None
+    runtime_profile_id: str | None = None
+    runtime_instance_id: str | None = None
+    thread_id: str | None = None
     created_at: str
     updated_at: str
 

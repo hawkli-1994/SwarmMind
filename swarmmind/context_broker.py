@@ -59,7 +59,9 @@ def derive_situation_tag(goal: str) -> str:
 def route_to_agent(situation_tag: str) -> Optional[str]:
     """
     Look up strategy_table for the given situation_tag.
-    Returns agent_id or None if not found.
+
+    DeerFlow-first mode always falls back to the ``general`` runtime entrypoint
+    when no dedicated control-plane mapping exists yet.
     """
     conn = get_connection()
     try:
@@ -69,7 +71,7 @@ def route_to_agent(situation_tag: str) -> Optional[str]:
             (situation_tag,),
         )
         row = cursor.fetchone()
-        return row["agent_id"] if row else None
+        return row["agent_id"] if row else "general"
     finally:
         conn.close()
 
@@ -178,38 +180,6 @@ def dispatch(
     situation_tag = override_situation_tag or derive_situation_tag(goal)
     agent_id = route_to_agent(situation_tag)
 
-    if agent_id is None:
-        logger.warning(
-            "No routing found for situation_tag=%s (goal=%r). "
-            "Returning error response.",
-            situation_tag, goal[:100],
-        )
-        # Create a rejected proposal so supervisor sees the failure
-        proposal = create_action_proposal(
-            agent_id="unknown",
-            description=f"No agent found for situation: {situation_tag}. "
-                       f"Goal text: {goal[:200]}",
-            confidence=0.0,
-        )
-        # Update status to rejected since routing failed
-        conn = get_connection()
-        try:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE action_proposals SET status = ? WHERE id = ?",
-                (ProposalStatus.REJECTED.value, proposal.id),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-        return DispatchResponse(
-            action_proposal_id=proposal.id,
-            agent_id="unknown",
-            status="no_route",
-            memory_ctx=memory_ctx,
-        )
-
     # Create a placeholder proposal — the actual agent will update description
     proposal = create_action_proposal(
         agent_id=agent_id,
@@ -285,17 +255,18 @@ def update_strategy_on_outcome(
     conn = get_connection()
     try:
         cursor = conn.cursor()
+        del agent_id
         if success:
             cursor.execute(
                 "UPDATE strategy_table SET success_count = success_count + 1 "
-                "WHERE situation_tag = ? AND agent_id = ?",
-                (situation_tag, agent_id),
+                "WHERE situation_tag = ?",
+                (situation_tag,),
             )
         else:
             cursor.execute(
                 "UPDATE strategy_table SET failure_count = failure_count + 1 "
-                "WHERE situation_tag = ? AND agent_id = ?",
-                (situation_tag, agent_id),
+                "WHERE situation_tag = ?",
+                (situation_tag,),
             )
         conn.commit()
     finally:

@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS conversations (
     title_status TEXT NOT NULL DEFAULT 'pending',
     title_source TEXT,
     title_generated_at DATETIME,
+    runtime_profile_id TEXT,
+    runtime_instance_id TEXT,
+    thread_id TEXT,
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -181,6 +184,12 @@ def _migrate_conversation_title_columns(conn: sqlite3.Connection) -> None:
         cursor.execute("ALTER TABLE conversations ADD COLUMN title_source TEXT")
     if "title_generated_at" not in existing_columns:
         cursor.execute("ALTER TABLE conversations ADD COLUMN title_generated_at DATETIME")
+    if "runtime_profile_id" not in existing_columns:
+        cursor.execute("ALTER TABLE conversations ADD COLUMN runtime_profile_id TEXT")
+    if "runtime_instance_id" not in existing_columns:
+        cursor.execute("ALTER TABLE conversations ADD COLUMN runtime_instance_id TEXT")
+    if "thread_id" not in existing_columns:
+        cursor.execute("ALTER TABLE conversations ADD COLUMN thread_id TEXT")
 
     cursor.execute(
         """
@@ -280,41 +289,22 @@ def health_check() -> dict:
 
 
 def seed_default_agents() -> None:
-    """Insert default Finance and Code Review agents if not already present."""
+    """Insert default DeerFlow-first agent registry and routing entries."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
 
         agents = [
             (
-                "finance",
-                "finance",
-                "You are a finance Q&A agent. You handle questions about financial reports, "
-                "revenue, quarterly results, expense analysis, and financial metrics. "
-                "When given a goal, analyze the shared context, identify what financial "
-                "information is needed, and propose specific actions. "
-                "Always respond with a valid JSON action proposal.",
-            ),
-            (
-                "code_review",
-                "code_review",
-                "You are a code review agent. You handle code analysis, bug detection, "
-                "PR reviews, code quality assessment, and technical architecture questions. "
-                "When given a goal, analyze the shared context, identify what code "
-                "information is needed, and propose specific actions. "
-                "Always respond with a valid JSON action proposal.",
-            ),
-            (
                 "general",
                 "general",
-                "Default general-purpose agent powered by DeerFlow. "
-                "Handles any goal that doesn't match a specialized agent. "
-                "Uses DeerFlow's full tool ecosystem including web search, file I/O, and bash.",
+                "Default general-purpose lead agent powered by DeerFlow Runtime. "
+                "All chat execution flows through this DeerFlow-backed runtime entrypoint.",
             ),
             (
                 "unknown",
                 "unknown",
-                "Placeholder agent for unmatched routing situations.",
+                "Placeholder agent for legacy unmatched routing situations.",
             ),
         ]
 
@@ -326,14 +316,14 @@ def seed_default_agents() -> None:
 
         # Seed initial strategy table entries
         strategies = [
-            ("finance", "finance"),          # domain-level fallback
-            ("finance_qa", "finance"),
-            ("quarterly_report", "finance"),
-            ("revenue_analysis", "finance"),
-            ("code_review", "code_review"),   # domain-level fallback
-            ("python_review", "code_review"),
-            ("pr_review", "code_review"),
-            ("unknown", "general"),           # fallback for unclassified goals
+            ("finance", "general"),
+            ("finance_qa", "general"),
+            ("quarterly_report", "general"),
+            ("revenue_analysis", "general"),
+            ("code_review", "general"),
+            ("python_review", "general"),
+            ("pr_review", "general"),
+            ("unknown", "general"),
         ]
 
         for situation_tag, agent_id in strategies:

@@ -1,9 +1,7 @@
 """Supervisor REST API — FastAPI server for human oversight."""
 
-import asyncio
 import json
 import logging
-import os
 import threading
 import time
 import uuid
@@ -13,14 +11,13 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT, DEER_FLOW_CONFIG_PATH
+from swarmmind.config import ACTION_TIMEOUT_SECONDS, API_HOST, API_PORT
 from swarmmind.context_broker import (
     derive_situation_tag,
     dispatch,
     record_supervisor_decision,
-    route_to_agent,
 )
 from swarmmind.db import get_connection, init_db, seed_default_agents
 from swarmmind.models import (
@@ -46,10 +43,8 @@ from swarmmind.models import (
     SupervisorDecision,
 )
 from swarmmind.renderer import generate_conversation_title_from_exchange, render_status
-from swarmmind.llm import LLMClient, LLMError
-from swarmmind.agents.finance import FinanceAgent
-from swarmmind.agents.code_review import CodeReviewAgent
 from swarmmind.agents.general_agent import GeneralAgent
+from swarmmind.runtime import RuntimeConfigError, RuntimeExecutionError, RuntimeUnavailableError, ensure_default_runtime_instance
 
 logger = logging.getLogger(__name__)
 
@@ -89,16 +84,6 @@ class StrategyChangeApproveRequest(BaseModel):
     change_id: str
 
 
-class ChatRequest(BaseModel):
-    message: str = Field(..., max_length=2000)
-    reasoning: bool = False  # Whether to enable LLM reasoning/thinking mode
-    history: list[dict] = Field(default=[], exclude=True)  # reserved for Phase 2
-
-
-class ChatResponse(BaseModel):
-    response: str
-
-
 # ---- FastAPI app ----
 
 app = FastAPI(
@@ -121,6 +106,7 @@ def startup():
     """Initialize DB on startup."""
     init_db()
     seed_default_agents()
+    ensure_default_runtime_instance()
     logger.info("SwarmMind API started on %s:%s", API_HOST, API_PORT)
     # Start cleanup scanner (proposals + expired memory) in background
     threading.Thread(target=_cleanup_scanner, daemon=True).start()
@@ -322,6 +308,17 @@ def health():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 
+@app.get("/ready")
+def ready():
+    """Readiness check: database plus DeerFlow runtime bundle."""
+    runtime_instance = ensure_default_runtime_instance()
+    return {
+        "status": "ok",
+        "runtime_profile_id": runtime_instance.runtime_profile_id,
+        "runtime_instance_id": runtime_instance.runtime_instance_id,
+    }
+
+
 # ---- Conversation endpoints ----
 
 def _row_to_conversation(row) -> Conversation:
@@ -333,6 +330,13 @@ def _row_to_conversation(row) -> Conversation:
         title_generated_at=(
             str(row["title_generated_at"]) if row["title_generated_at"] is not None else None
         ),
+        runtime_profile_id=(
+            str(row["runtime_profile_id"]) if row["runtime_profile_id"] is not None else None
+        ),
+        runtime_instance_id=(
+            str(row["runtime_instance_id"]) if row["runtime_instance_id"] is not None else None
+        ),
+        thread_id=str(row["thread_id"]) if row["thread_id"] is not None else None,
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
@@ -340,14 +344,6 @@ def _row_to_conversation(row) -> Conversation:
 
 def _serialize_stream_event(event_type: str, **payload) -> str:
     return json.dumps({"type": event_type, **payload}, ensure_ascii=False) + "\n"
-
-
-def _agent_display_name(agent_id: str) -> str:
-    return {
-        "finance": "财务 Agent",
-        "code_review": "代码审查 Agent",
-        "general": "通用 Agent",
-    }.get(agent_id, "Agent Team")
 
 
 def _tool_activity_label(tool_name: str, args: dict | None = None) -> str:
@@ -474,6 +470,43 @@ def _normalize_model_name(model_name: str | None) -> str | None:
 
     value = model_name.strip()
     return value or None
+
+
+def _conversation_thread_id(conversation_id: str) -> str:
+    return conversation_id
+
+
+def _bind_conversation_runtime(conversation_id: str) -> tuple[object, str]:
+    runtime_instance = ensure_default_runtime_instance()
+    thread_id = _conversation_thread_id(conversation_id)
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE conversations
+            SET runtime_profile_id = ?, runtime_instance_id = ?, thread_id = ?
+            WHERE id = ?
+            """,
+            (
+                runtime_instance.runtime_profile_id,
+                runtime_instance.runtime_instance_id,
+                thread_id,
+                conversation_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return runtime_instance, thread_id
+
+
+def _format_runtime_error(exc: Exception) -> str:
+    if isinstance(exc, (RuntimeConfigError, RuntimeUnavailableError, RuntimeExecutionError)):
+        return f"DeerFlow Runtime error: {exc}"
+    return f"Unexpected DeerFlow execution error: {exc}"
 
 
 def _resolve_runtime_options(body: SendMessageRequest) -> ConversationRuntimeOptions:
@@ -784,10 +817,7 @@ def send_message(conversation_id: str, body: SendMessageRequest):
     """
     Internal compatibility endpoint for non-streaming conversation turns.
 
-    Routing logic:
-    1. Try dispatch() to route to a specialized agent
-    2. If routed: auto-approve, execute agent, use result as response
-    3. If no_route: fall back to render_status() (direct LLM)
+    All execution flows through the single DeerFlow Runtime Instance.
     """
     # Save user message (validates conversation exists via FK or explicit check)
     user_msg_id = str(uuid.uuid4())
@@ -817,108 +847,47 @@ def send_message(conversation_id: str, body: SendMessageRequest):
         session_id=conversation_id,
     )
     runtime_options = _resolve_runtime_options(body)
-
-    # Route through ContextBroker — use lightweight check first to avoid creating orphaned proposals
     situation_tag = derive_situation_tag(body.content)
-    routed_agent_id = route_to_agent(situation_tag)
 
-    if routed_agent_id in (None, "general"):
-        # No specialized agent matched — use GeneralAgent via dispatch (consistent flow)
-        try:
-            general_agent = GeneralAgent(
-                deer_flow_config_path=DEER_FLOW_CONFIG_PATH,
-                default_model=runtime_options.model_name,
-                thinking_enabled=runtime_options.thinking_enabled,
-                subagent_enabled=runtime_options.subagent_enabled,
-                plan_mode=runtime_options.plan_mode,
-            )
-            # Use dispatch() with override to get a proper pending proposal routed to GeneralAgent
-            dispatch_result = dispatch(
-                body.content,
-                user_id="supervisor",
-                session_id=conversation_id,
-                override_situation_tag="general",
-            )
-            proposal_id = dispatch_result.action_proposal_id
+    dispatch_result = dispatch(
+        body.content,
+        user_id="supervisor",
+        session_id=conversation_id,
+        override_situation_tag=situation_tag,
+    )
+    proposal_id = dispatch_result.action_proposal_id
 
-            # Auto-approve the proposal (supervisor decision)
-            conn2 = get_connection()
-            try:
-                cursor2 = conn2.cursor()
-                cursor2.execute(
-                    "UPDATE action_proposals SET status = ? WHERE id = ?",
-                    (ProposalStatus.APPROVED.value, proposal_id),
-                )
-                conn2.commit()
-            finally:
-                conn2.close()
-            record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
-
-            # Execute with GeneralAgent
-            completed_proposal = general_agent.act(
-                body.content,
-                proposal_id,
-                ctx=memory_ctx,
-                runtime_options=runtime_options,
-            )
-            ai_response = completed_proposal.description
-        except Exception as e:
-            logger.error("GeneralAgent error: %s", e)
-            ai_response = f"I attempted to process your request using the general agent but encountered an error: {e}"
-    else:
-        # Agent matched — full dispatch, auto-approve, and execute
-        dispatch_result = dispatch(
-            body.content,
-            user_id="supervisor",
-            session_id=conversation_id,
+    conn2 = get_connection()
+    try:
+        cursor2 = conn2.cursor()
+        cursor2.execute(
+            "UPDATE action_proposals SET status = ? WHERE id = ?",
+            (ProposalStatus.APPROVED.value, proposal_id),
         )
-        proposal_id = dispatch_result.action_proposal_id
-        agent_id = dispatch_result.agent_id
+        conn2.commit()
+    finally:
+        conn2.close()
+    record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
 
-        # Mark proposal as approved
-        conn2 = get_connection()
-        try:
-            cursor2 = conn2.cursor()
-            cursor2.execute(
-                "UPDATE action_proposals SET status = ? WHERE id = ?",
-                (ProposalStatus.APPROVED.value, proposal_id),
-            )
-            conn2.commit()
-        finally:
-            conn2.close()
-
-        # Log supervisor decision
-        record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
-
-        # Execute the agent with MemoryContext
-        try:
-            if agent_id == "finance":
-                agent = FinanceAgent()
-            elif agent_id == "code_review":
-                agent = CodeReviewAgent()
-            else:
-                # Fallback: use GeneralAgent (DeerFlow)
-                agent = GeneralAgent(
-                    deer_flow_config_path=DEER_FLOW_CONFIG_PATH,
-                    default_model=runtime_options.model_name,
-                    thinking_enabled=runtime_options.thinking_enabled,
-                    subagent_enabled=runtime_options.subagent_enabled,
-                    plan_mode=runtime_options.plan_mode,
-                )
-
-            if isinstance(agent, GeneralAgent):
-                completed_proposal = agent.act(
-                    body.content,
-                    proposal_id,
-                    ctx=memory_ctx,
-                    runtime_options=runtime_options,
-                )
-            else:
-                completed_proposal = agent.act(body.content, proposal_id, ctx=memory_ctx)
-            ai_response = completed_proposal.description
-        except Exception as e:
-            logger.error("Agent execution error: %s", e)
-            ai_response = f"I attempted to process your request but encountered an error: {e}"
+    try:
+        runtime_instance, _thread_id = _bind_conversation_runtime(conversation_id)
+        general_agent = GeneralAgent(
+            runtime_instance=runtime_instance,
+            default_model=runtime_options.model_name,
+            thinking_enabled=runtime_options.thinking_enabled,
+            subagent_enabled=runtime_options.subagent_enabled,
+            plan_mode=runtime_options.plan_mode,
+        )
+        completed_proposal = general_agent.act(
+            body.content,
+            proposal_id,
+            ctx=memory_ctx,
+            runtime_options=runtime_options,
+        )
+        ai_response = completed_proposal.description
+    except Exception as e:
+        logger.error("GeneralAgent execution error: %s", e)
+        ai_response = _format_runtime_error(e)
 
     # Save assistant response
     assistant_msg_id = str(uuid.uuid4())
@@ -1002,139 +971,63 @@ def _stream_conversation_message(conversation_id: str, body: SendMessageRequest)
 
     ai_response = ""
     situation_tag = derive_situation_tag(body.content)
-    routed_agent_id = route_to_agent(situation_tag)
 
     try:
-        if routed_agent_id in (None, "general"):
-            yield _serialize_stream_event(
-                "status",
-                phase="routing",
-                label=routing_label,
-            )
+        yield _serialize_stream_event(
+            "status",
+            phase="routing",
+            label=routing_label,
+        )
 
-            general_agent = GeneralAgent(
-                deer_flow_config_path=DEER_FLOW_CONFIG_PATH,
-                default_model=runtime_options.model_name,
-                thinking_enabled=runtime_options.thinking_enabled,
-                subagent_enabled=runtime_options.subagent_enabled,
-                plan_mode=runtime_options.plan_mode,
-            )
+        dispatch_result = dispatch(
+            body.content,
+            user_id="supervisor",
+            session_id=conversation_id,
+            override_situation_tag=situation_tag,
+        )
+        proposal_id = dispatch_result.action_proposal_id
 
-            dispatch_result = dispatch(
-                body.content,
-                user_id="supervisor",
-                session_id=conversation_id,
-                override_situation_tag="general",
+        conn = get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE action_proposals SET status = ? WHERE id = ?",
+                (ProposalStatus.APPROVED.value, proposal_id),
             )
-            proposal_id = dispatch_result.action_proposal_id
+            conn.commit()
+        finally:
+            conn.close()
+        record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
 
-            conn = get_connection()
+        runtime_instance, _thread_id = _bind_conversation_runtime(conversation_id)
+        general_agent = GeneralAgent(
+            runtime_instance=runtime_instance,
+            default_model=runtime_options.model_name,
+            thinking_enabled=runtime_options.thinking_enabled,
+            subagent_enabled=runtime_options.subagent_enabled,
+            plan_mode=runtime_options.plan_mode,
+        )
+
+        yield _serialize_stream_event(
+            "status",
+            phase="running",
+            label=running_label,
+        )
+
+        stream = general_agent.stream_events(
+            body.content,
+            ctx=memory_ctx,
+            runtime_options=runtime_options,
+        )
+        while True:
             try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE action_proposals SET status = ? WHERE id = ?",
-                    (ProposalStatus.APPROVED.value, proposal_id),
-                )
-                conn.commit()
-            finally:
-                conn.close()
-            record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
+                event = next(stream)
+            except StopIteration as stop:
+                ai_response, _tool_results = stop.value
+                break
 
-            yield _serialize_stream_event(
-                "status",
-                phase="running",
-                label=running_label,
-            )
-
-            stream = general_agent.stream_events(
-                body.content,
-                ctx=memory_ctx,
-                runtime_options=runtime_options,
-            )
-            while True:
-                try:
-                    event = next(stream)
-                except StopIteration as stop:
-                    ai_response, _tool_results = stop.value
-                    break
-
-                for line in _translate_general_agent_event(event, runtime_options):
-                    yield line
-
-        else:
-            dispatch_result = dispatch(
-                body.content,
-                user_id="supervisor",
-                session_id=conversation_id,
-            )
-            proposal_id = dispatch_result.action_proposal_id
-            agent_id = dispatch_result.agent_id
-
-            conn = get_connection()
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE action_proposals SET status = ? WHERE id = ?",
-                    (ProposalStatus.APPROVED.value, proposal_id),
-                )
-                conn.commit()
-            finally:
-                conn.close()
-            record_supervisor_decision(proposal_id, SupervisorDecision.APPROVED)
-
-            yield _serialize_stream_event(
-                "status",
-                phase="running",
-                label=f"{_agent_display_name(agent_id)} 正在执行这轮任务",
-            )
-            yield _serialize_stream_event(
-                "team_activity",
-                activity={
-                    "id": proposal_id,
-                    "tool_name": agent_id,
-                    "label": f"{_agent_display_name(agent_id)} 已接手本轮处理",
-                    "status": "running",
-                },
-            )
-
-            if agent_id == "finance":
-                agent = FinanceAgent()
-            elif agent_id == "code_review":
-                agent = CodeReviewAgent()
-            else:
-                agent = GeneralAgent(
-                    deer_flow_config_path=DEER_FLOW_CONFIG_PATH,
-                    default_model=runtime_options.model_name,
-                    thinking_enabled=runtime_options.thinking_enabled,
-                    subagent_enabled=runtime_options.subagent_enabled,
-                    plan_mode=runtime_options.plan_mode,
-                )
-
-            if isinstance(agent, GeneralAgent):
-                completed_proposal = agent.act(
-                    body.content,
-                    proposal_id,
-                    ctx=memory_ctx,
-                    runtime_options=runtime_options,
-                )
-            else:
-                completed_proposal = agent.act(body.content, proposal_id, ctx=memory_ctx)
-            ai_response = completed_proposal.description
-
-            yield _serialize_stream_event(
-                "team_activity",
-                activity={
-                    "id": proposal_id,
-                    "tool_name": agent_id,
-                    "label": f"{_agent_display_name(agent_id)} 已完成本轮处理",
-                    "status": "completed",
-                },
-            )
-            yield _serialize_stream_event(
-                "assistant_message",
-                message_id=f"assistant-{proposal_id}",
-                content=ai_response,
-            )
+            for line in _translate_general_agent_event(event, runtime_options):
+                yield line
 
         if not ai_response.strip():
             ai_response = "本轮运行已完成，但没有生成可展示的最终回答。"
@@ -1142,11 +1035,11 @@ def _stream_conversation_message(conversation_id: str, body: SendMessageRequest)
         raise
     except Exception as e:
         logger.error("Conversation stream error: %s", e)
-        ai_response = f"I attempted to process your request but encountered an error: {e}"
+        ai_response = _format_runtime_error(e)
         yield _serialize_stream_event(
             "status",
             phase="error",
-            label="本轮执行中断，已返回错误信息",
+            label="DeerFlow Runtime 执行失败",
         )
         yield _serialize_stream_event(
             "assistant_message",
@@ -1194,78 +1087,6 @@ def send_message_stream(conversation_id: str, body: SendMessageRequest):
     return StreamingResponse(
         _stream_conversation_message(conversation_id, body),
         media_type="application/x-ndjson",
-    )
-
-
-@app.post("/chat", response_model=ChatResponse, include_in_schema=False)
-async def chat(request: ChatRequest):
-    """
-    Internal non-streaming chat endpoint for compatibility and simple callers.
-
-    User-facing chat surfaces should use ``/chat/stream`` or
-    ``/conversations/{conversation_id}/messages/stream``.
-    """
-    try:
-        # Run blocking LLM call in thread pool to avoid blocking the event loop
-        enhanced_message = (
-            f"[respond_in_language] Detect the language of the text below "
-            f"and respond in that same language.\nText: {request.message}\n"
-        )
-        summary = await asyncio.to_thread(render_status, enhanced_message, request.reasoning)
-        return ChatResponse(response=summary)
-    except Exception as e:
-        logger.error("Chat error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def _stream_chat(request: ChatRequest):
-    """Async generator for streaming chat responses in data-stream format."""
-    import json
-
-    enhanced_message = (
-        f"[respond_in_language] Detect the language of the text below "
-        f"and respond in that same language.\nText: {request.message}\n"
-    )
-    messages = [{"role": "user", "content": enhanced_message}]
-    try:
-        client = LLMClient()
-    except LLMError as e:
-        yield f"3:{json.dumps(str(e))}\n"
-        return
-
-    try:
-        async for chunk in client.stream(messages, max_tokens=1024, reasoning=request.reasoning):
-            if "error" in chunk:
-                yield f"3:{json.dumps(chunk['error'])}\n"
-                return
-            if chunk.get("thinking"):
-                # data-stream thinking delta: "1:{text}\n"
-                yield f"1:{json.dumps(chunk['thinking'])}\n"
-            if chunk.get("text"):
-                # data-stream text delta: "0:{text}\n"
-                yield f"0:{json.dumps(chunk['text'])}\n"
-            if chunk.get("finish"):
-                # data-stream message finish: "d:{finishReason, usage}\n"
-                yield f"d:{json.dumps({'finishReason': chunk['finish'], 'usage': {}})}\n"
-    except Exception as e:
-        logger.error("Chat stream error: %s", e)
-        yield f"3:{json.dumps(str(e))}\n"
-
-
-@app.post("/chat/stream")
-async def chat_stream(request: ChatRequest):
-    """
-    Streaming chat endpoint — returns SSE in data-stream format for assistant-ui.
-
-    Format:
-      0:{text}   — text delta (JSON string)
-      d:{finish} — message finish (JSON {finishReason, usage})
-      3:{error}  — error message (JSON string)
-    """
-    return StreamingResponse(
-        _stream_chat(request),
-        media_type="text/plain; charset=utf-8",
-        headers={"x-vercel-ai-data-stream": "v1"},
     )
 
 

@@ -16,10 +16,11 @@ from deerflow.client import DeerFlowClient
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from swarmmind.agents.base import BaseAgent
-from swarmmind.config import DEER_FLOW_CONFIG_PATH
 from swarmmind.context_broker import update_proposal_result
 from swarmmind.db import get_connection
 from swarmmind.models import ActionProposal, ConversationRuntimeOptions, MemoryContext
+from swarmmind.runtime import RuntimeExecutionError, ensure_default_runtime_instance
+from swarmmind.runtime.models import RuntimeInstance
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class GeneralAgent(BaseAgent):
 
     def __init__(
         self,
-        deer_flow_config_path: str | None = None,
+        runtime_instance: RuntimeInstance | None = None,
         default_model: str | None = None,
         thinking_enabled: bool = True,
         subagent_enabled: bool = False,
@@ -43,7 +44,8 @@ class GeneralAgent(BaseAgent):
         # Initialize BaseAgent (sets self.memory, loads system_prompt from DB)
         super().__init__(agent_id="general", domain="general")
 
-        self._config_path = deer_flow_config_path or DEER_FLOW_CONFIG_PATH
+        self._runtime_instance = runtime_instance or ensure_default_runtime_instance()
+        self._config_path = str(self._runtime_instance.config_path)
         self._default_model = default_model
         self._thinking_enabled = thinking_enabled
         self._subagent_enabled = subagent_enabled
@@ -91,7 +93,7 @@ class GeneralAgent(BaseAgent):
                 action_proposal_id,
                 f"GeneralAgent DeerFlow error: {e}",
             )
-            raise
+            raise RuntimeExecutionError(str(e)) from e
 
         if not final_text:
             logger.warning("DeerFlow returned empty response for goal=%r", goal[:50])

@@ -23,9 +23,12 @@ class FakeProposal:
         self.description = description
 
 
-class FakeFinanceAgent:
-    def act(self, goal: str, proposal_id: str, ctx=None):
-        return FakeProposal(f"Stub finance response for: {goal}")
+class FakeGeneralAgent:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def act(self, goal: str, proposal_id: str, ctx=None, runtime_options=None):
+        return FakeProposal(f"Stub DeerFlow response for: {goal}")
 
 
 def _conversation_row(conversation_id: str):
@@ -50,7 +53,7 @@ class TestConversationTitles:
         assert conversation.title_generated_at is None
 
     def test_first_complete_exchange_generates_title(self, monkeypatch):
-        monkeypatch.setattr(supervisor, "FinanceAgent", FakeFinanceAgent)
+        monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
         monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(context_broker, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(
@@ -68,7 +71,7 @@ class TestConversationTitles:
         )
 
         row = _conversation_row(conversation.id)
-        assert response.assistant_message.content.startswith("Stub finance response")
+        assert response.assistant_message.content.startswith("Stub DeerFlow response")
         assert row["title"] == "CRM MVP 模块边界"
         assert row["title_status"] == "generated"
         assert row["title_source"] == "llm"
@@ -77,7 +80,7 @@ class TestConversationTitles:
     def test_subsequent_messages_do_not_regenerate_title(self, monkeypatch):
         calls: list[tuple[str, str]] = []
 
-        monkeypatch.setattr(supervisor, "FinanceAgent", FakeFinanceAgent)
+        monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
         monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(context_broker, "derive_situation_tag", lambda _: "finance")
 
@@ -110,7 +113,7 @@ class TestConversationTitles:
         assert len(calls) == 1
 
     def test_title_generation_falls_back_when_llm_fails(self, monkeypatch):
-        monkeypatch.setattr(supervisor, "FinanceAgent", FakeFinanceAgent)
+        monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
         monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "finance")
         monkeypatch.setattr(context_broker, "derive_situation_tag", lambda _: "finance")
 

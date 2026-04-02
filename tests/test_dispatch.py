@@ -33,17 +33,17 @@ class TestDeriveSituationTag:
 
 
 class TestRouteToAgent:
-    def test_finance_routes_to_finance_agent(self):
+    def test_finance_routes_to_general_runtime_entry(self):
         agent_id = route_to_agent("finance_qa")
-        assert agent_id == "finance"
+        assert agent_id == "general"
 
-    def test_code_routes_to_code_review_agent(self):
+    def test_code_routes_to_general_runtime_entry(self):
         agent_id = route_to_agent("code_review")
-        assert agent_id == "code_review"
+        assert agent_id == "general"
 
-    def test_unknown_situation_returns_none(self):
+    def test_unknown_situation_falls_back_to_general(self):
         agent_id = route_to_agent("competitive_analysis")
-        assert agent_id is None
+        assert agent_id == "general"
 
 
 class TestDispatch:
@@ -51,7 +51,7 @@ class TestDispatch:
         from swarmmind.context_broker import dispatch
 
         result = dispatch("Generate the Q3 financial summary for Acme Corp")
-        assert result.agent_id == "finance"
+        assert result.agent_id == "general"
         assert result.status == "pending"
         assert result.action_proposal_id is not None
 
@@ -59,7 +59,7 @@ class TestDispatch:
         from swarmmind.context_broker import dispatch
 
         result = dispatch("Review the new payment API PR")
-        assert result.agent_id == "code_review"
+        assert result.agent_id == "general"
         assert result.status == "pending"
 
     def test_dispatch_unknown_goal_routes_to_general_agent(self):

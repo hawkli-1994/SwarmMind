@@ -92,6 +92,16 @@ def _conversation_message_count(conversation_id: str) -> int:
         conn.close()
 
 
+def _conversation_row(conversation_id: str):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,))
+        return cursor.fetchone()
+    finally:
+        conn.close()
+
+
 def test_streaming_chat_session_emits_runtime_events_and_persists_messages(monkeypatch):
     monkeypatch.setattr(supervisor, "GeneralAgent", FakeGeneralAgent)
     monkeypatch.setattr(supervisor, "derive_situation_tag", lambda _: "unknown")
@@ -150,6 +160,10 @@ def test_streaming_chat_session_emits_runtime_events_and_persists_messages(monke
     assert title_event["conversation"]["title_status"] == "generated"
     assert _conversation_message_count(conversation.id) == 2
     assert FakeGeneralAgent.stream_runtime_options[-1].mode == ConversationMode.ULTRA
+    conversation_row = _conversation_row(conversation.id)
+    assert conversation_row["runtime_profile_id"] == "local-default"
+    assert conversation_row["runtime_instance_id"] == "local-default-instance"
+    assert conversation_row["thread_id"] == conversation.id
 
 
 @pytest.mark.parametrize(

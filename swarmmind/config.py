@@ -1,4 +1,9 @@
-"""Configuration for SwarmMind Phase 1."""
+"""Configuration for SwarmMind.
+
+MVP still reads model/provider defaults from environment, but DeerFlow runtime
+config bundles are now materialized explicitly by ``swarmmind.runtime`` instead
+of relying on cwd-based ``config.yaml`` discovery.
+"""
 
 import os
 from pathlib import Path
@@ -38,7 +43,8 @@ MEMORY_MAX_TTL_SECONDS = 604800       # 7 days
 # L4 USER_SOUL write authorization — only these agents may write to L4
 SOUL_WRITER_AGENT_IDS = {"soul_writer"}
 
-# DeerFlow configuration paths
-# Default to None — DeerFlow must be installed and configured via env vars
+# DeerFlow runtime env overrides
 DEER_FLOW_CONFIG_PATH = os.environ.get("DEER_FLOW_CONFIG_PATH", None)
+DEER_FLOW_HOME = os.environ.get("DEER_FLOW_HOME", None)
+DEER_FLOW_EXTENSIONS_CONFIG_PATH = os.environ.get("DEER_FLOW_EXTENSIONS_CONFIG_PATH", None)
 DEER_FLOW_SKILLS_PATH = os.environ.get("DEER_FLOW_SKILLS_PATH", None)

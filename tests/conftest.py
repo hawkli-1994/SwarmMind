@@ -7,6 +7,7 @@ Production code still treats these as normal runtime dependencies.
 
 from __future__ import annotations
 
+import os
 import sys
 from types import ModuleType
 
@@ -59,3 +60,5 @@ def _ensure_deerflow_stub() -> None:
 
 _ensure_litellm_stub()
 _ensure_deerflow_stub()
+
+os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
