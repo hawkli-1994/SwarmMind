@@ -163,7 +163,7 @@ const MODE_OPTIONS: Array<{
     label: "Flash",
     description: "最快回复，不展开推理",
     accentClassName:
-      "from-[#cfe5ff] via-[#e8f3ff] to-white text-[#184a88] border-[#b9d3f5]",
+      "from-[#e8eef3] via-[#f5f6f4] to-[#f7f3ec] text-[#46586b] border-[#d4dde3]",
     icon: Zap,
   },
   {
@@ -171,7 +171,7 @@ const MODE_OPTIONS: Array<{
     label: "Thinking",
     description: "保留推理过程，单轮深入分析",
     accentClassName:
-      "from-[#ece4ff] via-[#f6f0ff] to-white text-[#5f38a6] border-[#d9c8ff]",
+      "from-[#edeaf4] via-[#f7f5f9] to-[#f7f3ec] text-[#5c516b] border-[#ddd6e6]",
     icon: Lightbulb,
   },
   {
@@ -179,7 +179,7 @@ const MODE_OPTIONS: Array<{
     label: "Pro",
     description: "先规划再执行",
     accentClassName:
-      "from-[#dff5eb] via-[#eefbf4] to-white text-[#0d6b4b] border-[#bfe7d3]",
+      "from-[#e8efe8] via-[#f4f7f2] to-[#f7f3ec] text-[#48604f] border-[#d5e0d4]",
     icon: GraduationCap,
   },
   {
@@ -187,7 +187,7 @@ const MODE_OPTIONS: Array<{
     label: "Ultra",
     description: "启用完整协作流程",
     accentClassName:
-      "from-[#fff0bd] via-[#fff8df] to-white text-[#8a5a00] border-[#ecd48a]",
+      "from-[#f2ead8] via-[#f8f5ed] to-[#f7f3ec] text-[#6d5a3e] border-[#e0d3bd]",
     icon: Rocket,
   },
 ];
@@ -332,7 +332,7 @@ function ModePicker({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "group flex h-8 items-center gap-1.5 rounded-full border bg-gradient-to-r px-2.5 text-left shadow-[0_10px_24px_-20px_rgba(15,23,42,0.4)] transition-all hover:border-border hover:shadow-[0_12px_24px_-20px_rgba(15,23,42,0.28)]",
+          "group flex h-8 items-center gap-1.5 rounded-full border bg-gradient-to-r px-2.5 text-left shadow-[0_12px_24px_-22px_rgba(56,42,28,0.28)] transition-all hover:border-border hover:shadow-[0_14px_24px_-22px_rgba(56,42,28,0.24)]",
           current.accentClassName,
         )}
       >
@@ -340,7 +340,7 @@ function ModePicker({
           <CurrentIcon className="size-3" />
         </span>
         <span className="min-w-0">
-          <span className="block text-[11px] leading-4 font-semibold tracking-[0.02em]">
+          <span className="block text-[11px] leading-4 font-semibold tracking-[0.04em]">
             {current.label}
           </span>
         </span>
@@ -369,10 +369,10 @@ function ModePicker({
                 damping: 28,
                 mass: 0.9,
               }}
-              className="absolute bottom-full left-0 z-50 mb-2.5 w-[286px] rounded-[20px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,248,250,0.96))] p-2.5 shadow-[0_22px_54px_-30px_rgba(15,23,42,0.34)] backdrop-blur"
+              className="absolute bottom-full left-0 z-50 mb-2.5 w-[286px] rounded-[20px] border border-border/80 bg-[linear-gradient(180deg,rgba(252,249,244,0.96),rgba(247,242,234,0.92))] p-2.5 shadow-[0_24px_54px_-34px_rgba(56,42,28,0.35)] backdrop-blur-md"
             >
               <div className="mb-1.5 px-1">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                   Mode
                 </p>
                 <p className="text-[12px] text-foreground">
@@ -399,7 +399,7 @@ function ModePicker({
                         "flex w-full items-start gap-2.5 rounded-[16px] border bg-white/70 px-3 py-2.5 text-left transition-all",
                         isSelected
                           ? cn(
-                              "shadow-[0_14px_30px_-22px_rgba(15,23,42,0.45)]",
+                              "shadow-[0_18px_34px_-26px_rgba(56,42,28,0.28)]",
                               mode.accentClassName,
                             )
                           : "border-border/70 text-foreground hover:border-border hover:bg-white",
@@ -419,7 +419,7 @@ function ModePicker({
                             {mode.label}
                           </span>
                           {isSelected ? (
-                            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em]">
+                            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em]">
                               Active
                             </span>
                           ) : null}
@@ -573,14 +573,19 @@ function MessageBubble({
     >
       <div
         className={cn(
-          "relative max-w-[88%] border",
+          "relative max-w-[90%]",
           isUser
-            ? "rounded-[22px] border-[#c9ddff] bg-[#dcebff] px-[18px] py-3 text-[#23395b] shadow-[0_10px_24px_-22px_rgba(44,98,170,0.55)]"
-            : "rounded-[26px] border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-5 py-4 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.3)] md:px-6 md:py-5",
+            ? "rounded-[24px] border border-[#d8d0c4] bg-[#f4efe7] px-[18px] py-[13px] text-[#2f2924] shadow-[0_12px_28px_-24px_rgba(73,56,41,0.34)]"
+            : "px-1 py-1 md:px-2",
         )}
       >
         {message.content.trim().length > 0 ? (
-          <div className="absolute -right-1 -top-1 opacity-0 transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+          <div
+            className={cn(
+              "absolute opacity-0 transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+              isUser ? "-right-1 -top-1" : "right-2 top-0",
+            )}
+          >
             <Button
               type="button"
               variant="ghost"
@@ -588,7 +593,7 @@ function MessageBubble({
               onClick={() => {
                 void handleCopy();
               }}
-              className="h-6 w-6 rounded-full border border-border/70 bg-white/95 text-muted-foreground shadow-sm backdrop-blur hover:bg-white hover:text-foreground"
+              className="h-6 w-6 rounded-full border border-border/70 bg-white/92 text-muted-foreground shadow-sm backdrop-blur hover:bg-white hover:text-foreground"
               title={copied ? "已复制" : "复制消息"}
             >
               {copied ? (
@@ -613,7 +618,7 @@ function MessageBubble({
               {message.content}
             </div>
           ) : (
-            <div className="prose prose-sm max-w-none pl-0.5 pr-1 font-[var(--font-body)] text-[14px] leading-[24px] text-foreground prose-headings:mt-0 prose-headings:mb-3 prose-headings:font-sans prose-p:my-0 prose-p:font-body prose-p:leading-[24px] prose-pre:my-4 prose-pre:mx-0 prose-code:font-mono prose-li:font-body prose-ul:my-3 prose-ul:pl-5 prose-ol:my-3 prose-ol:pl-5 prose-li:my-1">
+            <div className="prose prose-sm max-w-none px-[18px] py-2 font-[var(--font-body)] text-[14px] leading-[24px] tracking-[-0.003em] text-foreground prose-headings:mt-0 prose-headings:mb-3 prose-headings:font-sans prose-headings:tracking-[-0.02em] prose-p:my-2 prose-p:font-body prose-p:leading-[24px] prose-pre:my-4 prose-pre:mx-0 prose-pre:rounded-[18px] prose-pre:border prose-pre:border-border/80 prose-pre:bg-[#f6f1e8] prose-pre:px-4 prose-pre:py-3 prose-code:font-mono prose-code:text-[#5e5043] prose-li:font-body prose-ul:my-3 prose-ul:pl-5 prose-ol:my-3 prose-ol:pl-5 prose-li:my-1">
               <Streamdown
                 mode={isMessageStreaming ? "streaming" : "static"}
                 remarkPlugins={
@@ -695,7 +700,7 @@ function ReasoningPanel({
     <Collapsible
       open={isOpen}
       onOpenChange={setIsOpen}
-      className="mb-3 rounded-md border border-border bg-secondary/90"
+      className="mb-3 rounded-[14px] border border-border/80 bg-secondary/80"
     >
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] leading-[18px] text-muted-foreground transition-colors hover:text-foreground">
         <Brain className="size-3.5 shrink-0" />
@@ -758,7 +763,7 @@ function MessageListSkeleton() {
       </div>
 
       <div className="flex justify-start">
-        <div className="w-full max-w-[520px] rounded-2xl border border-border/70 bg-card px-4 py-4">
+        <div className="w-full max-w-[520px] rounded-2xl border border-border/70 bg-[#f8f4ed] px-4 py-4">
           <div className="space-y-2">
             <div className="skeleton-line h-3.5 w-[120px] rounded-full" />
             <div className="skeleton-line h-4 rounded-full" />
@@ -1410,8 +1415,8 @@ export function V0Chat({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
       {/* Subtle background atmosphere */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,hsla(214,67%,77%,0.08),transparent)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_400px_at_20%_80%,hsla(259,45%,89%,0.05),transparent)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(222,211,190,0.16),transparent)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_320px_at_18%_84%,rgba(214,221,210,0.10),transparent)]" />
 
       {/* Scrollable area: messages OR empty-state */}
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -1431,15 +1436,17 @@ export function V0Chat({
                   transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   className="mb-8"
                 >
-                  <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1.5 text-[12px] text-muted-foreground">
-                    <Sparkles className="size-3.5 text-primary" />
-                    SwarmMind v0.9
+                  <div className="inline-flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-card/90 text-muted-foreground shadow-[0_14px_30px_-24px_rgba(73,56,41,0.28)]">
+                    <Sparkles className="size-4 text-[#7d6d5c]" />
                   </div>
-                  <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
+                  <p className="mt-5 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                    SwarmMind v0.9
+                  </p>
+                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-foreground">
                     临时会话
                   </h2>
-                  <p className="mt-2 max-w-[420px] text-[15px] leading-relaxed text-muted-foreground">
-                    快速探索、生成和试跑想法。首次发送成功后才会创建正式会话。
+                  <p className="mt-2 max-w-[440px] text-[15px] leading-relaxed text-muted-foreground">
+                    快速探索、整理和试跑想法。首次发送成功后，系统才会创建正式会话。
                   </p>
                 </motion.div>
 
@@ -1449,7 +1456,7 @@ export function V0Chat({
                   transition={{ delay: 0.15, duration: 0.2 }}
                   className="mb-3 flex items-center gap-2"
                 >
-                  <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                     快速开始
                   </p>
                   <span className="h-px flex-1 bg-border/50" />
@@ -1480,12 +1487,12 @@ export function V0Chat({
                         className={cn(
                           "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
                           i === 0
-                            ? "bg-[#dcebff] text-[#184a88]"
+                            ? "bg-[#e2ebf3] text-[#49617a]"
                             : i === 1
-                              ? "bg-[#fff0bd] text-[#8a5a00]"
+                              ? "bg-[#efe7d7] text-[#756046]"
                               : i === 2
-                                ? "bg-[#eee6ff] text-[#5f38a6]"
-                                : "bg-[#dff5eb] text-[#0d6b4b]",
+                                ? "bg-[#ece8f2] text-[#66597c]"
+                                : "bg-[#e7eee6] text-[#4c6554]",
                         )}
                       >
                         <Icon className="size-4" />
@@ -1528,7 +1535,7 @@ export function V0Chat({
                     transition={{ duration: 0.2 }}
                     className="flex justify-start"
                   >
-                    <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 shadow-sm">
+                    <div className="flex items-center gap-2 rounded-full border border-border/80 bg-card/90 px-4 py-2.5 shadow-[0_12px_24px_-24px_rgba(56,42,28,0.45)]">
                       <StreamingDots />
                       <span className="text-[13px] text-muted-foreground">
                         正在生成回复
@@ -1554,7 +1561,7 @@ export function V0Chat({
                 variant="outline"
                 size="sm"
                 onClick={() => scrollToLatest("smooth")}
-                className="pointer-events-auto rounded-full border-border bg-background/95 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.45)] backdrop-blur"
+                className="pointer-events-auto rounded-full border-border bg-background/92 shadow-[0_12px_30px_-20px_rgba(56,42,28,0.34)] backdrop-blur-md"
               >
                 <ArrowDown className="size-3.5" />
                 回到最新
@@ -1565,27 +1572,27 @@ export function V0Chat({
       </div>
 
       {/* Pinned bottom: status + composer as unified container */}
-      <div className="sticky bottom-0 z-20 border-t border-border/60 bg-background/94 shadow-[0_-18px_38px_-30px_rgba(15,23,42,0.35)] backdrop-blur supports-[backdrop-filter]:bg-background/82">
+      <div className="sticky bottom-0 z-20 border-t border-border/60 bg-background/92 shadow-[0_-16px_38px_-32px_rgba(56,42,28,0.26)] backdrop-blur-md supports-[backdrop-filter]:bg-background/78">
         <div className="mx-auto w-full max-w-[760px] px-6 pb-5 pt-3">
-          <div className="rounded-2xl border border-border bg-card shadow-[0_4px_24px_-12px_rgba(0,0,0,0.08)] transition-[border-color,box-shadow] focus-within:border-[#a8c8ff] focus-within:shadow-[0_4px_24px_-12px_rgba(100,160,255,0.18)] focus-within:ring-[3px] focus-within:ring-[#a8c8ff]/30">
+          <div className="rounded-[24px] border border-border/80 bg-[linear-gradient(180deg,rgba(252,249,244,0.94),rgba(247,242,234,0.92))] shadow-[0_18px_40px_-34px_rgba(56,42,28,0.4)] backdrop-blur-md transition-[border-color,box-shadow] focus-within:border-[#b6c5d1] focus-within:shadow-[0_22px_44px_-34px_rgba(88,102,118,0.34)] focus-within:ring-[3px] focus-within:ring-[#d5dde4]/70">
             {/* Mode indicator accent bar */}
-            <div className="overflow-hidden rounded-t-2xl">
+            <div className="overflow-hidden rounded-t-[24px]">
               <div
                 className={cn(
                   "h-[2px] bg-gradient-to-r from-transparent via-60% to-transparent transition-all duration-500",
                   currentModeOption.id === "flash"
-                    ? "via-[#a8c8ff]"
+                    ? "via-[#c9d5df]"
                     : currentModeOption.id === "thinking"
-                      ? "via-[#c8a8ff]"
+                      ? "via-[#d8cfe2]"
                       : currentModeOption.id === "pro"
-                        ? "via-[#8ad4a8]"
-                        : "via-[#ffcf5a]",
+                        ? "via-[#cdd8cd]"
+                        : "via-[#ddcfb6]",
                 )}
               />
             </div>
             {(runtime.phase !== "idle" || error) && (
               <div
-                className="border-b border-border/70 bg-secondary/50 px-5 py-2.5"
+                className="border-b border-border/70 bg-secondary/65 px-5 py-2.5"
                 aria-live="polite"
               >
                 <div className="flex items-center justify-between">
@@ -1619,10 +1626,10 @@ export function V0Chat({
                       ? "输入问题或任务..."
                       : "当前没有可用模型，暂时无法开始会话"
                 }
-                className="min-h-[100px] resize-none border-none bg-transparent px-5 py-4 text-[15px] focus-visible:ring-0"
+                className="min-h-[104px] resize-none border-none bg-transparent px-5 py-4 text-[15px] leading-[24px] tracking-[-0.003em] focus-visible:ring-0"
                 disabled={isComposerDisabled}
               />
-              <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
+              <div className="flex items-center justify-between border-t border-border/70 px-4 py-2.5">
                 <div className="flex items-center gap-1">
                   <ModePicker
                     selected={selectedMode}

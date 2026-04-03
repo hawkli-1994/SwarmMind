@@ -108,11 +108,11 @@ function PageHeader({
       <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-2">
-            <div className="text-[12px] leading-[18px] text-muted-foreground">
+            <div className="text-[12px] leading-[18px] tracking-[0.04em] text-muted-foreground">
               SwarmMind / {VIEW_LABELS[activeView]}
             </div>
             <div className="space-y-1">
-              <h1 className="font-heading text-[28px] leading-9 font-semibold text-foreground">
+              <h1 className="font-heading text-[28px] leading-9 font-semibold tracking-[-0.02em] text-foreground">
                 {VIEW_LABELS[activeView]}
               </h1>
               <p className="max-w-2xl text-[14px] leading-[22px] text-muted-foreground">
