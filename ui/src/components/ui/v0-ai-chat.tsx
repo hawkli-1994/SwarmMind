@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { Streamdown } from "streamdown";
+import "streamdown/styles.css";
+import remarkGfm from "remark-gfm";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@radix-ui/react-collapsible";
+import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import {
   AnimatePresence,
   motion,
@@ -24,6 +32,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Shimmer } from "@/components/ui/shimmer";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -184,6 +193,16 @@ const MODE_OPTIONS: Array<{
 
 const DEFAULT_MODE: ConversationMode = "flash";
 const DEFAULT_MODEL = "";
+
+const streamAnimateOptions = {
+  animation: "fadeIn" as const,
+  duration: 300,
+  stagger: 20,
+  sep: "word" as const,
+};
+
+const streamingRemarkPlugins = [remarkGfm];
+const staticRemarkPlugins = [remarkGfm];
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
@@ -471,8 +490,10 @@ function ModelPicker({
 
 function MessageBubble({
   message,
+  isMessageStreaming = false,
 }: {
   message: ChatMessage;
+  isMessageStreaming?: boolean;
 }) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
@@ -533,7 +554,13 @@ function MessageBubble({
             <div className="whitespace-pre-wrap text-[14px] leading-[22px]">{message.content}</div>
           ) : (
             <div className="prose prose-sm max-w-none text-[14px] leading-[22px] text-foreground">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <Streamdown
+                mode={isMessageStreaming ? "streaming" : "static"}
+                remarkPlugins={isMessageStreaming ? streamingRemarkPlugins : staticRemarkPlugins}
+                animated={isMessageStreaming ? streamAnimateOptions : false}
+              >
+                {message.content}
+              </Streamdown>
             </div>
           )
         ) : (
@@ -554,85 +581,59 @@ function ReasoningPanel({
   thinking: string;
   isStreaming?: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [isOpen, setIsOpen] = useControllableState({
+    defaultProp: true,
+  });
   const [hasAutoClosed, setHasAutoClosed] = useState(false);
-  const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
-  const startTimeRef = useRef<number | null>(null);
+  const [durationSeconds, setDurationSeconds] = useState<number | undefined>(undefined);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!thinking) {
-      return;
-    }
-
-    if (startTimeRef.current === null) {
-      startTimeRef.current = Date.now();
-      setDurationSeconds(null);
-      setHasAutoClosed(false);
-    }
-  }, [thinking]);
-
+  // Track duration when streaming starts/ends
   useEffect(() => {
     if (isStreaming) {
-      setOpen(true);
-      return;
+      if (startTime === null) {
+        setStartTime(Date.now());
+      }
+    } else if (startTime !== null) {
+      setDurationSeconds(Math.max(1, Math.ceil((Date.now() - startTime) / 1000)));
+      setStartTime(null);
     }
+  }, [isStreaming, startTime]);
 
-    if (!thinking) {
-      return;
+  // Auto-close after streaming ends (once only)
+  useEffect(() => {
+    if (!isStreaming && isOpen && !hasAutoClosed && durationSeconds !== undefined) {
+      const timer = window.setTimeout(() => {
+        setIsOpen(false);
+        setHasAutoClosed(true);
+      }, 1000);
+      return () => window.clearTimeout(timer);
     }
+  }, [isStreaming, isOpen, hasAutoClosed, durationSeconds, setIsOpen]);
 
-    if (startTimeRef.current !== null && durationSeconds === null) {
-      const elapsedSeconds = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
-      setDurationSeconds(elapsedSeconds);
-    }
-
-    if (!open || hasAutoClosed) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setOpen(false);
-      setHasAutoClosed(true);
-    }, 1000);
-
-    return () => window.clearTimeout(timer);
-  }, [durationSeconds, hasAutoClosed, isStreaming, open, thinking]);
-
-  const statusText = isStreaming
-    ? "模型正在思考"
-    : durationSeconds
-      ? `思考完成，用时 ${durationSeconds} 秒`
-      : "思考过程";
+  const triggerContent = isStreaming || durationSeconds === undefined
+    ? <Shimmer duration={1}>{"模型正在思考..."}</Shimmer>
+    : <span>{`思考完成，用时 ${durationSeconds} 秒`}</span>;
 
   return (
-    <div className="mb-3 rounded-md border border-border bg-secondary/90">
-      <button
-        type="button"
-        onClick={() => setOpen((previous) => !previous)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] leading-[18px] text-muted-foreground transition-colors hover:text-foreground"
-      >
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-3 rounded-md border border-border bg-secondary/90">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] leading-[18px] text-muted-foreground transition-colors hover:text-foreground">
         <Brain className="size-3.5 shrink-0" />
-        <span className="flex-1">{statusText}</span>
-        {isStreaming ? <StreamingDots className="mr-1" /> : null}
-        <ChevronDown className={cn("size-3.5 shrink-0 transition-transform duration-200", open && "rotate-180")} />
-      </button>
+        <span className="flex-1">{triggerContent}</span>
+        <ChevronDown className={cn("size-3.5 shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
+      </CollapsibleTrigger>
 
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
+      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+        <div className="border-t border-border/70 px-3 py-2 text-[12px] leading-[18px] text-muted-foreground">
+          <Streamdown
+            mode={isStreaming ? "streaming" : "static"}
+            remarkPlugins={staticRemarkPlugins}
           >
-            <div className="border-t border-border/70 px-3 py-2 whitespace-pre-wrap text-[12px] leading-[18px] text-muted-foreground">
-              {thinking}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+            {thinking}
+          </Streamdown>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -696,7 +697,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
   const [isConversationLoading, setIsConversationLoading] = useState(false);
   const [modelLoadError, setModelLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(conversationId);
+  const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
@@ -970,7 +971,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
             const next = [...previous];
             next[exactIndex] = {
               ...next[exactIndex],
-              thinking: next[exactIndex].thinking ? `${next[exactIndex].thinking}\n${event.content}` : event.content,
+              thinking: event.content,
               isReasoningStreaming: true,
             };
             return next;
@@ -982,9 +983,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
             next[activeAssistantIndex] = {
               ...next[activeAssistantIndex],
               id: event.message_id,
-              thinking: next[activeAssistantIndex].thinking
-                ? `${next[activeAssistantIndex].thinking}\n${event.content}`
-                : event.content,
+              thinking: event.content,
               isReasoningStreaming: true,
             };
             return next;
@@ -1292,6 +1291,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
               <MessageBubble
                 key={message.id}
                 message={message}
+                isMessageStreaming={message.isStreaming || message.isReasoningStreaming}
               />
             ))}
               {isLoading && messages.every((m) => m.role !== "assistant") && (

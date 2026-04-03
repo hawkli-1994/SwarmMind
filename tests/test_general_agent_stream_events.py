@@ -10,13 +10,15 @@ from swarmmind.agents.general_agent import DeerFlowRuntimeAdapter
 
 
 class FakeStreamingAgent:
-    def __init__(self, chunks):
-        self._chunks = chunks
+    def __init__(self, values_chunks):
+        self._values_chunks = values_chunks
 
     def stream(self, state, config=None, context=None, stream_mode=None):
         assert state["messages"][0].id == "current-turn-user"
-        for chunk in self._chunks:
-            yield chunk
+        # Emit values-mode chunks tagged with the mode key, matching
+        # the dual stream_mode=["messages", "values"] format.
+        for chunk in self._values_chunks:
+            yield ("values", chunk)
 
 
 class FakeClient:
@@ -57,7 +59,7 @@ def test_stream_events_skips_history_messages_before_current_turn(monkeypatch):
                     HumanMessage(content="上一轮问题", id="history-user"),
                     AIMessage(content="上一轮回答", id="history-assistant"),
                     HumanMessage(content="这一轮问题", id="current-turn-user"),
-                    AIMessage(content="这一轮回答", id="current-turn-assistant"),
+                    AIMessage(content="这���轮回答", id="current-turn-assistant"),
                 ],
             },
         ],
@@ -68,7 +70,6 @@ def test_stream_events_skips_history_messages_before_current_turn(monkeypatch):
         plan_mode=False,
         subagent_enabled=False,
     )
-    agent._extract_reasoning = lambda message: ""
 
     events = list(
         agent.stream_events(
@@ -78,10 +79,7 @@ def test_stream_events_skips_history_messages_before_current_turn(monkeypatch):
         ),
     )
 
-    assert events == [
-        {
-            "type": "assistant_message",
-            "message_id": "current-turn-assistant",
-            "content": "这一轮回答",
-        },
-    ]
+    # Values-mode only: no messages-mode chunks, so no streaming events;
+    # only the values snapshot produces a final_text tracked internally.
+    # Since AIMessage has no tool_calls, values handler yields nothing visible.
+    assert events == []

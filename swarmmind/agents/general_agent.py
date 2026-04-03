@@ -13,7 +13,7 @@ from typing import Any
 
 import deerflow.client as deerflow_client_module
 from deerflow.client import DeerFlowClient
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 
 from swarmmind.agents.base import BaseAgent
 from swarmmind.context_broker import update_proposal_result
@@ -221,8 +221,11 @@ class DeerFlowRuntimeAdapter(BaseAgent):
     ) -> Generator[dict[str, Any], None, tuple[str, list[str]]]:
         """Yield structured runtime events for a DeerFlow-backed turn.
 
-        SwarmMind's temporary ChatSession uses this to surface runtime state
-        without exposing DeerFlow's raw internal terms directly to the user.
+        Uses dual stream mode ("messages" + "values"):
+        - "messages" mode provides token-level AIMessageChunk for real-time
+          thinking/content streaming.
+        - "values" mode provides complete state snapshots for tool calls,
+          tool results, and final text tracking.
         """
         thread_id = ctx.session_id if ctx and ctx.session_id else str(uuid.uuid4())
         effective_runtime = self._resolve_runtime_options(runtime_options)
@@ -243,80 +246,114 @@ class DeerFlowRuntimeAdapter(BaseAgent):
         final_text = ""
         tool_results: list[str] = []
 
-        for chunk in self._client._agent.stream(
+        # Token-level streaming accumulators (reset per LLM invocation)
+        current_chunk_msg_id: str | None = None
+        accumulated_reasoning = ""
+        accumulated_content = ""
+
+        for mode_tag, chunk in self._client._agent.stream(
             state,
             config=config,
             context=runtime_context,
-            stream_mode="values",
+            stream_mode=["messages", "values"],
         ):
-            messages = chunk.get("messages", [])
-            turn_anchor_index = next(
-                (
-                    index
-                    for index, message in enumerate(messages)
-                    if isinstance(message, HumanMessage) and getattr(message, "id", None) == current_user_message_id
-                ),
-                -1,
-            )
-
-            if turn_anchor_index == -1:
-                continue
-
-            for msg in messages[turn_anchor_index + 1 :]:
-                if isinstance(msg, HumanMessage):
+            if mode_tag == "messages":
+                msg_chunk, _metadata = chunk
+                if not isinstance(msg_chunk, AIMessageChunk):
                     continue
 
-                msg_id = getattr(msg, "id", None)
-                if msg_id and msg_id in seen_ids:
-                    continue
-                if msg_id:
-                    seen_ids.add(msg_id)
+                chunk_id = getattr(msg_chunk, "id", None)
+                if chunk_id and chunk_id != current_chunk_msg_id:
+                    # New LLM invocation started; reset accumulators
+                    current_chunk_msg_id = chunk_id
+                    accumulated_reasoning = ""
+                    accumulated_content = ""
 
-                if isinstance(msg, AIMessage):
-                    reasoning = self._extract_reasoning(msg)
-                    if reasoning:
-                        yield {
-                            "type": "assistant_reasoning",
-                            "message_id": msg_id,
-                            "content": reasoning,
-                        }
+                if not current_chunk_msg_id:
+                    current_chunk_msg_id = str(uuid.uuid4())
 
-                    if msg.tool_calls:
-                        yield {
-                            "type": "assistant_tool_calls",
-                            "message_id": msg_id,
-                            "tool_calls": [
-                                {
-                                    "name": tool_call.get("name"),
-                                    "args": tool_call.get("args", {}),
-                                    "id": tool_call.get("id"),
-                                }
-                                for tool_call in msg.tool_calls
-                            ],
-                        }
-
-                    content = self._client._extract_text(msg.content)
-                    if content:
-                        final_text = content
-                        yield {
-                            "type": "assistant_message",
-                            "message_id": msg_id,
-                            "content": content,
-                        }
-
-                elif isinstance(msg, ToolMessage):
-                    tool_name = getattr(msg, "name", None) or "unknown"
-                    tool_content = self._client._extract_text(msg.content)
-                    if tool_content:
-                        tool_results.append(f"[{tool_name}]: {tool_content[:200]}")
-
+                # Stream reasoning tokens
+                reasoning_delta = self._extract_reasoning_delta(msg_chunk)
+                if reasoning_delta:
+                    accumulated_reasoning += reasoning_delta
                     yield {
-                        "type": "tool_result",
-                        "message_id": msg_id,
-                        "tool_name": tool_name,
-                        "tool_call_id": getattr(msg, "tool_call_id", None),
-                        "content": tool_content,
+                        "type": "assistant_reasoning",
+                        "message_id": current_chunk_msg_id,
+                        "content": accumulated_reasoning,
                     }
+
+                # Stream content tokens
+                content_delta = self._extract_content_delta(msg_chunk)
+                if content_delta:
+                    accumulated_content += content_delta
+                    yield {
+                        "type": "assistant_message",
+                        "message_id": current_chunk_msg_id,
+                        "content": accumulated_content,
+                    }
+
+            elif mode_tag == "values":
+                messages = chunk.get("messages", [])
+                turn_anchor_index = next(
+                    (
+                        index
+                        for index, message in enumerate(messages)
+                        if isinstance(message, HumanMessage) and getattr(message, "id", None) == current_user_message_id
+                    ),
+                    -1,
+                )
+
+                if turn_anchor_index == -1:
+                    continue
+
+                for msg in messages[turn_anchor_index + 1 :]:
+                    if isinstance(msg, HumanMessage):
+                        continue
+
+                    msg_id = getattr(msg, "id", None)
+                    if msg_id and msg_id in seen_ids:
+                        continue
+                    if msg_id:
+                        seen_ids.add(msg_id)
+
+                    if isinstance(msg, AIMessage):
+                        # Tool calls (only from values mode for completeness)
+                        if msg.tool_calls:
+                            yield {
+                                "type": "assistant_tool_calls",
+                                "message_id": msg_id,
+                                "tool_calls": [
+                                    {
+                                        "name": tool_call.get("name"),
+                                        "args": tool_call.get("args", {}),
+                                        "id": tool_call.get("id"),
+                                    }
+                                    for tool_call in msg.tool_calls
+                                ],
+                            }
+
+                        # Track final text from complete messages
+                        content = self._client._extract_text(msg.content)
+                        if content:
+                            final_text = content
+
+                    elif isinstance(msg, ToolMessage):
+                        tool_name = getattr(msg, "name", None) or "unknown"
+                        tool_content = self._client._extract_text(msg.content)
+                        if tool_content:
+                            tool_results.append(f"[{tool_name}]: {tool_content[:200]}")
+
+                        yield {
+                            "type": "tool_result",
+                            "message_id": msg_id,
+                            "tool_name": tool_name,
+                            "tool_call_id": getattr(msg, "tool_call_id", None),
+                            "content": tool_content,
+                        }
+
+        # Fallback: if messages mode captured content but values mode didn't
+        if not final_text and accumulated_content:
+            final_text = accumulated_content
 
         return final_text, tool_results
 
@@ -374,6 +411,40 @@ class DeerFlowRuntimeAdapter(BaseAgent):
             if reasoning_parts:
                 return "\n\n".join(reasoning_parts)
 
+        return None
+
+    @staticmethod
+    def _extract_reasoning_delta(chunk: AIMessageChunk) -> str | None:
+        """Extract incremental reasoning content from a streaming chunk."""
+        additional_kwargs = getattr(chunk, "additional_kwargs", None) or {}
+        reasoning = additional_kwargs.get("reasoning_content")
+        if isinstance(reasoning, str) and reasoning:
+            return reasoning
+
+        content = getattr(chunk, "content", None)
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "thinking":
+                    thinking = block.get("thinking", "")
+                    if thinking:
+                        return thinking
+
+        return None
+
+    @staticmethod
+    def _extract_content_delta(chunk: AIMessageChunk) -> str | None:
+        """Extract incremental text content from a streaming chunk."""
+        content = getattr(chunk, "content", None)
+        if isinstance(content, str) and content:
+            return content
+        if isinstance(content, list):
+            parts = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text = block.get("text", "")
+                    if text:
+                        parts.append(text)
+            return "".join(parts) if parts else None
         return None
 
 
