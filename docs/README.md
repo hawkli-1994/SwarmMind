@@ -25,8 +25,8 @@
 
 ### B. UI 线框
 
+- `DESIGN.md`
 - `docs/ui/README.md`
-- `docs/ui/00-v1-visual-language.md`
 - `docs/ui/01-navigation-and-principles.md`
 - `docs/ui/02-page-map-and-flows.md`
 - `docs/ui/10-workbench-and-chat.md`
@@ -37,8 +37,9 @@
 
 用途：
 
-- 承接主架构到页面骨架
-- 定义导航、布局、页面状态和交互规则
+- `DESIGN.md` 承接视觉系统、设计 token 和跨页面设计边界
+- `docs/ui/*` 承接主架构到页面骨架
+- `docs/ui/*` 定义导航、布局、页面状态和交互规则
 
 ### C. 场景验证
 

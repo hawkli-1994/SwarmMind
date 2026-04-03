@@ -1,28 +1,21 @@
-# SwarmMind UI 线框文档
+# SwarmMind UI Docs
 
-> 日期：2026-03-27
-> 用途：基于现有架构文档，产出 Supervisor UI 的完整页面线框集合
-> 主要依据：`docs/architecture.md`、`docs/enterprise-crm-user-story.md`
+> 日期：2026-04-03
+> 用途：维护 `SwarmMind/ui/` 的页面骨架、全局交互规则和关键流程
 
-## 1. 文档目标
+## 1. 文档边界
 
-这套文档不是视觉稿，而是面向产品、设计和前端实现的结构化线框说明。
+UI 文档现在分成两层：
 
-目标有三点：
+- [`DESIGN.md`](../../DESIGN.md)：唯一视觉与设计系统母稿
+- `docs/ui/*`：页面骨架、导航、流程和线框说明
 
-- 把架构文档里的抽象对象转成真实可用页面
-- 明确 Supervisor UI 不是普通聊天界面，而是 AI Team 控制面
-- 为后续视觉设计、交互稿和前端实现提供统一骨架
-
-补充规则：
-
-- 用户看到的是 `Agent Team`
-- Team 管理页编辑的是 `AgentTeamTemplate`
-- 项目空间里使用的是 `ProjectAgentTeamInstance`
+这次收敛后，`docs/ui` 不再承载独立视觉语言母稿。
+颜色、字体、密度、圆角、阴影、动效边界、Chat/Project 气质差异，统一收口到 `DESIGN.md`。
 
 ## 2. 阅读顺序
 
-1. `00-v1-visual-language.md`
+1. [`DESIGN.md`](../../DESIGN.md)
 2. `01-navigation-and-principles.md`
 3. `02-page-map-and-flows.md`
 4. `10-workbench-and-chat.md`
@@ -31,37 +24,26 @@
 7. `40-approval-center.md`
 8. `60-knowledge-library-schedules.md`
 
-补充约束：
+## 3. 每份文档负责什么
 
-- 本目录是当前唯一有效的 UI 线框集合。
-- 不再维护独立的前端总规范母稿；若新增规则，应直接写入本目录对应文档。
-- 若某条 UI 规则同时影响运行时语义，应优先写入 `docs/architecture.md`，再在本目录引用或落地为页面规则。
+- `01-navigation-and-principles.md`
+  - 全局导航、骨架、跨页规则、响应式总原则
+- `02-page-map-and-flows.md`
+  - 页面全集与关键主流程
+- `10-workbench-and-chat.md`
+  - 工作台、轻量 ChatSession、最近记录
+- `20-skill-center.md`
+  - 技能治理入口
+- `30-projects-and-project-space.md`
+  - 项目列表、项目空间与固定子页
+- `40-approval-center.md`
+  - 审批中心与相关抽屉
+- `60-knowledge-library-schedules.md`
+  - 资源库、知识库、定时任务、设置
 
-## 3. 页面清单
+## 4. 页面文档写法
 
-本目录覆盖的页面如下：
-
-- 工作台
-- 新建对话 / 轻量 ChatSession
-- 最近记录
-- 技能中心
-- 项目列表
-- 新建项目
-- 项目总览
-- 项目协作台
-- 项目看板
-- 项目时间线与风险
-- 项目产物库
-- 项目设置 / Team 挂载
-- 审批中心
-- 资源库
-- 知识库
-- 定时任务
-- 设置
-
-## 4. 页面方法
-
-除基础规则文档外，每个页面都遵循同一描述结构：
+页面文档默认保留这些部分：
 
 - 页面卡片
 - 信息结构
@@ -70,10 +52,25 @@
 - 状态设计
 - 移动端规则
 
-## 5. 设计结论
+不再重复写这些内容：
 
-SwarmMind 的 UI 核心不是“多几个 tab 的聊天壳”，而是三层清晰控制面：
+- 全局视觉语言
+- 字体和颜色总规范
+- 阴影/圆角/动效边界
+- 与其它文档重复的全局设计结论
 
-- 会话层：让用户快速探索与发起
-- 项目层：承接正式协作、Team、任务、产物和审批
-- 治理层：承接技能治理、审批治理和权限化工作台聚合
+## 5. 维护规则
+
+- 跨页面视觉规则改 `DESIGN.md`
+- 跨页面结构或导航规则改 `01` / `02`
+- 单页面信息结构和交互改对应页面文档
+- 若某条 UI 规则影响运行时语义，先改 `docs/architecture.md`，再回写到 UI 文档
+
+## 6. 设计定位
+
+SwarmMind 的 UI 不是“聊天壳 + 几个 tab”。
+它是三层清晰控制面：
+
+- 会话层：探索与发起
+- 项目层：执行与协作
+- 治理层：审批、技能、资产与权限化聚合
