@@ -162,32 +162,28 @@ const MODE_OPTIONS: Array<{
     id: "flash",
     label: "Flash",
     description: "最快回复，不展开推理",
-    accentClassName:
-      "from-[#e5edf3] via-[#f7f8f7] to-[#fbfbfa] text-[#46586b] border-[#d2dce3]",
+    accentClassName: "border-[#d2dce3] bg-[#f4f7f9] text-[#46586b]",
     icon: Zap,
   },
   {
     id: "thinking",
     label: "Thinking",
     description: "保留推理过程，单轮深入分析",
-    accentClassName:
-      "from-[#efeaf3] via-[#f8f7f9] to-[#fbfbfa] text-[#5c516b] border-[#ddd7e4]",
+    accentClassName: "border-[#ddd7e4] bg-[#f6f3f8] text-[#5c516b]",
     icon: Lightbulb,
   },
   {
     id: "pro",
     label: "Pro",
     description: "先规划再执行",
-    accentClassName:
-      "from-[#e9efe8] via-[#f5f7f4] to-[#fbfbfa] text-[#48604f] border-[#d4ded3]",
+    accentClassName: "border-[#d4ded3] bg-[#f3f6f2] text-[#48604f]",
     icon: GraduationCap,
   },
   {
     id: "ultra",
     label: "Ultra",
     description: "启用完整协作流程",
-    accentClassName:
-      "from-[#f1ece2] via-[#f9f7f1] to-[#fbfbfa] text-[#6d5a3e] border-[#dfd4c3]",
+    accentClassName: "border-[#dfd4c3] bg-[#f8f4ed] text-[#6d5a3e]",
     icon: Rocket,
   },
 ];
@@ -333,11 +329,11 @@ function ModePicker({
         onClick={() => setOpen((prev) => !prev)}
         aria-label={`当前执行模式：${current.label}`}
         className={cn(
-          "group flex min-h-11 items-center gap-2 rounded-full border bg-gradient-to-r px-3 text-left shadow-[0_12px_24px_-22px_rgba(56,42,28,0.22)] transition-all hover:border-border hover:shadow-[0_14px_24px_-22px_rgba(56,42,28,0.18)] focus-visible:border-[#bec8d0] focus-visible:ring-4 focus-visible:ring-[#e7ecef]/80",
+          "group flex min-h-11 items-center gap-2 rounded-xl border px-3.5 py-2 text-left shadow-[0_4px_12px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.02)] transition-colors hover:border-border focus-visible:border-[#bec8d0] focus-visible:ring-4 focus-visible:ring-[#e7ecef]/80",
           current.accentClassName,
         )}
       >
-        <span className="flex size-6 items-center justify-center rounded-full bg-white/85 shadow-sm">
+        <span className="flex size-6 items-center justify-center rounded-md border border-black/5 bg-white/80">
           <CurrentIcon className="size-3" />
         </span>
         <span className="min-w-0">
@@ -370,7 +366,7 @@ function ModePicker({
                 damping: 28,
                 mass: 0.9,
               }}
-              className="absolute bottom-full left-0 z-50 mb-2.5 w-[286px] rounded-[20px] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,250,248,0.94))] p-2.5 shadow-[0_24px_54px_-34px_rgba(56,42,28,0.22)] backdrop-blur-md"
+              className="absolute bottom-full left-0 z-50 mb-2.5 w-[286px] rounded-2xl border border-border bg-card p-2 shadow-[0_10px_24px_-18px_rgba(56,42,28,0.16)]"
             >
               <div className="mb-1.5 px-1">
                 <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
@@ -397,33 +393,23 @@ function ModePicker({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.03 }}
                       className={cn(
-                        "flex w-full items-start gap-2.5 rounded-[16px] border bg-white/70 px-3 py-2.5 text-left transition-all",
+                        "flex w-full items-start gap-2.5 rounded-[14px] border px-3 py-2.5 text-left transition-colors",
                         isSelected
-                          ? cn(
-                              "shadow-[0_18px_34px_-26px_rgba(56,42,28,0.28)]",
-                              mode.accentClassName,
-                            )
-                          : "border-border/70 text-foreground hover:border-border hover:bg-white",
+                          ? cn("bg-card", mode.accentClassName)
+                          : "border-border bg-background text-foreground hover:border-border hover:bg-card",
                       )}
                     >
                       <span
                         className={cn(
-                          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border bg-white/80 shadow-sm",
-                          isSelected ? "border-white/70" : "border-border/70",
+                          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border bg-white/80",
+                          isSelected ? "border-black/5" : "border-border/80",
                         )}
                       >
                         <Icon className="size-3.5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[12px] font-semibold">
-                            {mode.label}
-                          </span>
-                          {isSelected ? (
-                            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em]">
-                              Active
-                            </span>
-                          ) : null}
+                        <span className="text-[12px] font-semibold">
+                          {mode.label}
                         </span>
                         <span className="mt-0.5 block text-[11px] leading-4 opacity-80">
                           {mode.description}
@@ -479,7 +465,7 @@ function ModelPicker({
         }}
         disabled={isDisabled}
         title={loadError ?? undefined}
-        className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent bg-transparent px-3 text-[12px] tracking-[0.04em] text-muted-foreground transition-colors hover:border-border/70 hover:bg-background/70 hover:text-foreground focus-visible:border-[#bec8d0] focus-visible:ring-4 focus-visible:ring-[#e7ecef]/80"
+        className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent bg-transparent px-3 text-[12px] tracking-[0.04em] text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground focus-visible:border-[#bec8d0] focus-visible:ring-4 focus-visible:ring-[#e7ecef]/80"
       >
         <Sparkles className="size-3.5" />
         <span className="max-w-[140px] truncate">{currentLabel}</span>
@@ -502,7 +488,7 @@ function ModelPicker({
                 damping: 30,
                 mass: 0.8,
               }}
-              className="absolute bottom-full left-0 z-50 mb-2 w-[220px] overflow-hidden rounded-[18px] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,250,248,0.95))] p-1.5 shadow-[0_20px_44px_-32px_rgba(56,42,28,0.2)] backdrop-blur-md"
+              className="absolute bottom-full left-0 z-50 mb-2 w-[220px] overflow-hidden rounded-[18px] border border-border bg-card p-1.5 shadow-[0_10px_24px_-18px_rgba(56,42,28,0.16)]"
             >
               {models.map((model) => (
                 <button
@@ -515,8 +501,8 @@ function ModelPicker({
                   className={cn(
                     "flex min-h-11 w-full items-center gap-2 rounded-[14px] px-3 py-2 text-[13px] transition-colors",
                     model.name === selected
-                      ? "bg-secondary/90 text-foreground font-medium"
-                      : "text-muted-foreground hover:bg-secondary/75 hover:text-foreground",
+                      ? "bg-secondary text-foreground font-medium"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                   )}
                 >
                   <Sparkles className="size-3.5 shrink-0" />
@@ -542,7 +528,8 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
   const hasCodeBlock = !isUser && message.content.includes("```");
-  const shouldShowMessageCopy = message.content.trim().length > 0 && (isUser || !hasCodeBlock);
+  const shouldShowMessageCopy =
+    message.content.trim().length > 0 && (isUser || !hasCodeBlock);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -578,7 +565,7 @@ function MessageBubble({
         className={cn(
           "relative max-w-[90%]",
           isUser
-            ? "rounded-[24px] border border-[#d7d2ca] bg-[#f4f2ef] px-[18px] py-[13px] text-[#2f2924] shadow-[0_12px_28px_-24px_rgba(73,56,41,0.2)]"
+            ? "rounded-[18px] border border-[#d8d1c8] bg-[#f3efea] px-[18px] py-[13px] text-[#2f2924]"
             : "px-1 py-1 md:px-2",
         )}
       >
@@ -599,10 +586,10 @@ function MessageBubble({
                 void handleCopy();
               }}
               className={cn(
-                "h-8 w-8 rounded-full text-muted-foreground backdrop-blur md:h-7 md:w-7",
+                "h-8 w-8 rounded-[10px] text-muted-foreground md:h-7 md:w-7",
                 isUser
-                  ? "border border-border/70 bg-white/92 shadow-sm hover:bg-white hover:text-foreground"
-                  : "border border-transparent bg-background/72 shadow-none hover:border-border/50 hover:bg-background/92 hover:text-foreground",
+                  ? "border border-border bg-white hover:bg-white hover:text-foreground"
+                  : "border border-transparent bg-background hover:border-border hover:bg-background hover:text-foreground",
               )}
               title={copied ? "已复制" : "复制消息"}
             >
@@ -710,7 +697,7 @@ function ReasoningPanel({
     <Collapsible
       open={isOpen}
       onOpenChange={setIsOpen}
-      className="mb-4 rounded-[14px] bg-secondary/52 ring-1 ring-border/55"
+      className="mb-4 rounded-[14px] border border-border bg-[#f8f7f4]"
     >
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[12px] leading-[18px] text-muted-foreground transition-colors hover:text-foreground">
         <Brain className="size-3.5 shrink-0" />
@@ -724,7 +711,7 @@ function ReasoningPanel({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-        <div className="border-t border-border/55 px-3.5 py-2.5 text-[12px] leading-[18px] text-muted-foreground">
+        <div className="border-t border-border px-3.5 py-2.5 text-[12px] leading-[18px] text-muted-foreground">
           <Streamdown
             mode={isStreaming ? "streaming" : "static"}
             remarkPlugins={staticRemarkPlugins}
@@ -1419,15 +1406,9 @@ export function V0Chat({
 
   const isEmpty = messages.length === 0 && !isLoading && !isConversationLoading;
   const isComposerDisabled = isLoading || isModelsLoading || !selectedModel;
-  const currentModeOption =
-    MODE_OPTIONS.find((mode) => mode.id === selectedMode) ?? MODE_OPTIONS[0];
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      {/* Subtle background atmosphere */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(222,211,190,0.16),transparent)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_320px_at_18%_84%,rgba(214,221,210,0.10),transparent)]" />
-
       {/* Scrollable area: messages OR empty-state */}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div
@@ -1446,17 +1427,17 @@ export function V0Chat({
                   transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   className="mb-8"
                 >
-                  <div className="inline-flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-card/90 text-muted-foreground shadow-[0_14px_30px_-24px_rgba(73,56,41,0.28)]">
-                    <Sparkles className="size-4 text-[#7d6d5c]" />
+                  <div className="inline-flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground">
+                    <Sparkles className="size-4 text-[#6c6259]" />
                   </div>
                   <p className="mt-5 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                    SwarmMind v0.9
+                    Exploratory Session
                   </p>
-                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-foreground">
+                  <h2 className="mt-2 text-[30px] leading-[38px] font-semibold tracking-[-0.02em] text-foreground">
                     临时会话
                   </h2>
                   <p className="mt-2 max-w-[440px] text-[15px] leading-relaxed text-muted-foreground">
-                    快速探索、整理和试跑想法。首次发送成功后，系统才会创建正式会话。
+                    用一个明确任务开始探索。首次发送成功后，系统才会创建正式会话记录。
                   </p>
                 </motion.div>
 
@@ -1491,18 +1472,18 @@ export function V0Chat({
                         setInput(prompt);
                         void handleSubmit(prompt);
                       }}
-                      className="group flex items-start gap-3 rounded-xl border border-border/70 bg-card/60 p-4 text-left transition-all hover:border-border hover:bg-card hover:shadow-[0_4px_16px_-8px_rgba(0,0,0,0.08)]"
+                      className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-[#c6cec6] hover:bg-[#fcfcfb]"
                     >
                       <span
                         className={cn(
-                          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-black/5 transition-colors",
                           i === 0
-                            ? "bg-[#e2ebf3] text-[#49617a]"
+                            ? "bg-[#e7edf2] text-[#49617a]"
                             : i === 1
-                              ? "bg-[#efe7d7] text-[#756046]"
+                              ? "bg-[#f0e9dc] text-[#756046]"
                               : i === 2
-                                ? "bg-[#ece8f2] text-[#66597c]"
-                                : "bg-[#e7eee6] text-[#4c6554]",
+                                ? "bg-[#efebf4] text-[#66597c]"
+                                : "bg-[#e9efea] text-[#4c6554]",
                         )}
                       >
                         <Icon className="size-4" />
@@ -1545,7 +1526,7 @@ export function V0Chat({
                     transition={{ duration: 0.2 }}
                     className="flex justify-start"
                   >
-                    <div className="flex items-center gap-2 rounded-full border border-border/80 bg-card/90 px-4 py-2.5 shadow-[0_12px_24px_-24px_rgba(56,42,28,0.45)]">
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
                       <StreamingDots />
                       <span className="text-[13px] text-muted-foreground">
                         正在生成回复
@@ -1573,7 +1554,7 @@ export function V0Chat({
                 onClick={() => scrollToLatest("smooth")}
                 aria-label="回到最新"
                 title="回到最新"
-                className="pointer-events-auto size-10 rounded-full border-border/80 bg-background/95 shadow-[0_16px_32px_-18px_rgba(56,42,28,0.34)] backdrop-blur-md hover:bg-background"
+                className="pointer-events-auto size-10 rounded-full border-border bg-background shadow-[0_4px_12px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.02)] hover:bg-background"
               >
                 <ArrowDown className="size-3.5" />
               </Button>
@@ -1584,124 +1565,105 @@ export function V0Chat({
 
       {/* Pinned bottom: status + composer as unified container */}
       <div className="sticky bottom-0 z-20">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-14 -translate-y-full bg-gradient-to-b from-transparent via-background/78 to-background/94"
-        />
-        <div className="relative bg-background/88 backdrop-blur-md supports-[backdrop-filter]:bg-background/72">
+        <div className="relative border-t border-border/60 bg-background/96">
           <div className="mx-auto w-full max-w-[760px] px-6 pb-5 pt-3">
-            <div className="rounded-[24px] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,250,248,0.94))] shadow-[0_18px_40px_-34px_rgba(56,42,28,0.22)] backdrop-blur-md transition-[border-color,box-shadow] focus-within:border-[#bec8d0] focus-within:shadow-[0_24px_46px_-34px_rgba(88,67,45,0.2)] focus-within:ring-[3px] focus-within:ring-[#e7ecef]/90">
-            {/* Mode indicator accent bar */}
-            <div className="overflow-hidden rounded-t-[24px]">
-              <div
-                className={cn(
-                  "h-[2px] bg-gradient-to-r from-transparent via-60% to-transparent transition-all duration-500",
-                  currentModeOption.id === "flash"
-                    ? "via-[#c9d5df]"
-                    : currentModeOption.id === "thinking"
-                      ? "via-[#d8cfe2]"
-                      : currentModeOption.id === "pro"
-                        ? "via-[#cdd8cd]"
-                        : "via-[#ddcfb6]",
-                )}
-              />
-            </div>
-            {(runtime.phase !== "idle" || error) && (
-              <div
-                className="border-b border-border/70 bg-secondary/72 px-5 py-2.5"
-                aria-live="polite"
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-[13px] text-muted-foreground">
-                    {error || runtime.label}
-                  </p>
-                  <Badge
-                    variant="outline"
-                    className={cn("text-[11px]", statusTone(runtime.phase))}
-                  >
-                    {statusLabel(runtime.phase)}
-                  </Badge>
+            <div className="rounded-[18px] border border-border bg-card shadow-[0_4px_12px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.02)] transition-[border-color,box-shadow] focus-within:border-[#bec8d0] focus-within:ring-[3px] focus-within:ring-[#e7ecef]/80">
+              {(runtime.phase !== "idle" || error) && (
+                <div
+                  className="border-b border-border bg-secondary px-5 py-2.5"
+                  aria-live="polite"
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[13px] text-muted-foreground">
+                      {error || runtime.label}
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className={cn("text-[11px]", statusTone(runtime.phase))}
+                    >
+                      {statusLabel(runtime.phase)}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div>
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleSubmit();
+              <div>
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSubmit();
+                    }
+                  }}
+                  placeholder={
+                    isModelsLoading
+                      ? "正在加载模型..."
+                      : selectedModel
+                        ? "输入问题或任务..."
+                        : "当前没有可用模型，暂时无法开始会话"
                   }
-                }}
-                placeholder={
-                  isModelsLoading
-                    ? "正在加载模型..."
-                    : selectedModel
-                      ? "输入问题或任务..."
-                      : "当前没有可用模型，暂时无法开始会话"
-                }
-                className="min-h-[104px] resize-none border-none bg-transparent px-5 py-4 text-[15px] leading-[24px] tracking-[-0.003em] focus-visible:ring-0"
-                disabled={isComposerDisabled}
-              />
-              <div className="flex flex-col gap-2 border-t border-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                  <ModePicker
-                    selected={selectedMode}
-                    onSelect={setSelectedMode}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled
-                    className="size-11 rounded-xl text-muted-foreground hover:bg-background/70"
-                    title="上传附件"
-                  >
-                    <Paperclip className="size-4" />
-                  </Button>
-                  {lastAssistantMessage && (
+                  className="min-h-[104px] resize-none border-none bg-white px-5 py-4 text-[15px] leading-[24px] tracking-[-0.003em] focus-visible:ring-0"
+                  disabled={isComposerDisabled}
+                />
+                <div className="flex flex-col gap-2 border-t border-border bg-[#fbfbfa] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ModePicker
+                      selected={selectedMode}
+                      onSelect={setSelectedMode}
+                    />
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="size-11 rounded-xl text-muted-foreground hover:bg-background/70"
-                      onClick={() =>
-                        navigator.clipboard.writeText(
-                          lastAssistantMessage.content,
-                        )
-                      }
-                      title="复制回复"
+                      disabled
+                      className="size-11 rounded-xl border border-transparent text-muted-foreground hover:border-border hover:bg-background"
+                      title="上传附件"
                     >
-                      <Copy className="size-4" />
+                      <Paperclip className="size-4" />
                     </Button>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-                  <ModelPicker
-                    models={modelOptions}
-                    selected={selectedModel}
-                    onSelect={setSelectedModel}
-                    isLoading={isModelsLoading}
-                    loadError={modelLoadError}
-                    onRetry={() => {
-                      void fetchModels();
-                    }}
-                  />
-                  <Button
-                    onClick={() => void handleSubmit()}
-                    disabled={!input.trim() || isComposerDisabled}
-                    size="icon-sm"
-                    className="size-11 rounded-xl shadow-[0_14px_24px_-18px_rgba(49,73,90,0.28)]"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <ArrowUp className="size-4" />
+                    {lastAssistantMessage && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="size-11 rounded-xl border border-transparent text-muted-foreground hover:border-border hover:bg-background"
+                        onClick={() =>
+                          navigator.clipboard.writeText(
+                            lastAssistantMessage.content,
+                          )
+                        }
+                        title="复制回复"
+                      >
+                        <Copy className="size-4" />
+                      </Button>
                     )}
-                  </Button>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+                    <ModelPicker
+                      models={modelOptions}
+                      selected={selectedModel}
+                      onSelect={setSelectedModel}
+                      isLoading={isModelsLoading}
+                      loadError={modelLoadError}
+                      onRetry={() => {
+                        void fetchModels();
+                      }}
+                    />
+                    <Button
+                      onClick={() => void handleSubmit()}
+                      disabled={!input.trim() || isComposerDisabled}
+                      size="icon-sm"
+                      className="size-11 rounded-xl shadow-none"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <ArrowUp className="size-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
             </div>
           </div>
         </div>

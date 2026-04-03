@@ -193,6 +193,7 @@ Accent color is not branding. Accent color is state.
 
 SwarmMind uses a warm gray chassis.
 Target feeling is closer to Notion paper warmth than Vercel cold slate.
+The platform should feel like matte acid-free paper, not a glowing screen.
 
 Use a strict neutral ladder from `Neutral-50` to `Neutral-900`:
 
@@ -213,6 +214,12 @@ Base surface intent:
 - Border: low-contrast warm gray
 - Text: dark charcoal, never pure black
 - Muted text: quiet warm gray
+
+Restrictions:
+
+- Do not overuse pure white `#FFFFFF`. Pure white should be reserved for high-focus interior fields such as the composer textarea.
+- Global canvas background should converge around `#F7F7F5` or `#F9F9F8`, so the page reads as paper rather than light emission.
+- Default card background can remain white, but only on top of the gray canvas and always with a `1px` solid border so the surface reads as stacked paper rather than a glossy floating layer.
 
 ### 7.2 Semantic States
 
@@ -265,12 +272,21 @@ Target feeling:
 Avoid using the same large rounded value on every surface.
 Radius should express hierarchy, not style-for-style's-sake.
 
-### 8.2 Shadow System
+### 8.2 Shadow System & Anti-Gloss
 
 - Most surfaces: very soft or no visible shadow
 - Elevated utility surfaces: one restrained shadow
 - Sticky composer: slightly stronger shadow to separate from scroll content
 - If shadow alone is not enough, use a low-opacity warm surface plus a very light backdrop blur
+
+SwarmMind must remain matte and crisp.
+It must never drift into consumer-product gloss.
+
+Anti-Gloss rules:
+
+- No diffused shadows. Blur radius should stay small. For floating utility surfaces, a pattern like `0 4px 12px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02)` is the upper bound.
+- Border first. A `1px` border in `Neutral-200` or `Neutral-300` defines the surface. Shadow can only support that edge, never replace it.
+- No borderless large-shadow cards. That combination creates a cheap plastic sheen and is off-brand for SwarmMind.
 
 ### 8.3 Micro-Depth
 
@@ -435,6 +451,20 @@ If an icon looks softer, rounder, or more decorative than the surrounding type, 
 - if assistant keeps a surface, it should be nearly invisible and exist only to preserve rhythm
 - assistant response should prioritize text measure, markdown rhythm, and calm elevation
 
+### 13.6 Code Blocks
+
+Code blocks are one of the core texture surfaces of the supervised workspace.
+They must not look like generic text cards.
+
+Visual rules:
+
+- Background must be physically distinct from the main canvas. Prefer a dark neutral inversion such as `#1E1E1E` or `#0D0D0D`, or a very restrained cool `Neutral-150`. Never use a plain white code block.
+- Typography is fixed to `Geist Mono`, `13px`, with `1.5` line-height.
+- Every code block needs a `32px-36px` header bar. Left side: language label in `11px` uppercase with added tracking. Right side: minimal copy action.
+- Header must read as separate from the code area through either a slightly darker fill or a `1px` divider.
+- Syntax highlighting must stay low-saturation and cold-neutral. No neon themes, no high-chroma rainbow tokens.
+- Radius must stay within `8px-10px`. Code blocks should feel engineered, not bubbly.
+
 ## 14. v0 Chat: Canonical Design Rules
 
 This section is the immediate design contract for `ui/src/components/ui/v0-ai-chat.tsx`.
@@ -539,21 +569,21 @@ Required states:
 Rule:
 Every error state should tell the user what they can do next.
 
-## 15. Responsive Rules
+## 15. Viewport Scope
 
-### 15.1 Mobile
+### 15.1 Product Scope
 
-- composer remains pinned
-- message width increases relative to viewport
-- metadata and secondary actions collapse before text area does
-- starter prompts reduce visual count before they reduce legibility
+- V1 is desktop-first. SwarmMind is not currently designed as a mobile product.
+- New product flows should not assume bottom bars, drawers, or touch-first mobile navigation patterns.
+- Design energy should go to desktop clarity, not to parallel mobile-specific layouts.
 
-### 15.2 Tablet
+### 15.2 Narrow Window Fallback
 
-- preserve desktop information hierarchy
-- simplify side chrome before shrinking core reading area
+- Support narrower desktop browser widths as a fallback, not as a primary product target.
+- Collapse secondary chrome before reducing transcript readability or composer usability.
+- Do not introduce separate mobile information architecture just to satisfy responsive aesthetics.
 
-### 15.3 Desktop
+### 15.3 Desktop Baseline
 
 - prioritize comfortable reading width
 - avoid giant center voids
