@@ -524,12 +524,14 @@ function MessageBubble({
     <div className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "relative max-w-[88%] rounded-lg border px-4 py-3 pr-12",
-          isUser ? "border-[#c9ddff] bg-[#dcebff] text-[#23395b]" : "border-border bg-card text-foreground",
+          "relative max-w-[88%] rounded-lg border px-4 py-3",
+          isUser
+            ? "border-[#c9ddff] bg-[#dcebff] text-[#23395b]"
+            : "rounded-2xl border-border/60 bg-card px-5 py-4 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)]",
         )}
       >
         {message.content.trim().length > 0 ? (
-          <div className="absolute right-2 top-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+          <div className="absolute -right-1 -top-1 opacity-0 transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
             <Button
               type="button"
               variant="ghost"
@@ -537,10 +539,10 @@ function MessageBubble({
               onClick={() => {
                 void handleCopy();
               }}
-              className="border border-border/70 bg-white/90 text-muted-foreground shadow-sm backdrop-blur hover:bg-white hover:text-foreground"
+              className="h-6 w-6 rounded-full border border-border/70 bg-white/95 text-muted-foreground shadow-sm backdrop-blur hover:bg-white hover:text-foreground"
               title={copied ? "已复制" : "复制消息"}
             >
-              {copied ? <Check className="size-3.5 text-[#0d6b4b]" /> : <Copy className="size-3.5" />}
+              {copied ? <Check className="size-3 text-[#0d6b4b]" /> : <Copy className="size-3" />}
             </Button>
           </div>
         ) : null}
@@ -551,9 +553,9 @@ function MessageBubble({
 
         {message.content ? (
           isUser ? (
-            <div className="whitespace-pre-wrap text-[14px] leading-[22px]">{message.content}</div>
+            <div className="whitespace-pre-wrap font-[var(--font-body)] text-[14px] leading-[22px]">{message.content}</div>
           ) : (
-            <div className="prose prose-sm max-w-none text-[14px] leading-[22px] text-foreground">
+            <div className="prose prose-sm max-w-none font-[var(--font-body)] text-[14px] leading-[22px] text-foreground prose-headings:font-sans prose-p:font-body prose-code:font-mono prose-li:font-body">
               <Streamdown
                 mode={isMessageStreaming ? "streaming" : "static"}
                 remarkPlugins={isMessageStreaming ? streamingRemarkPlugins : staticRemarkPlugins}
@@ -1244,7 +1246,11 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
   const currentModeOption = MODE_OPTIONS.find((mode) => mode.id === selectedMode) ?? MODE_OPTIONS[0];
 
   return (
-    <div className="flex h-[calc(100vh-65px)] flex-col bg-background md:h-screen">
+    <div className="relative flex h-[calc(100vh-65px)] flex-col bg-background md:h-screen">
+      {/* Subtle background atmosphere */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,hsla(214,67%,77%,0.08),transparent)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_400px_at_20%_80%,hsla(259,45%,89%,0.05),transparent)]" />
+
       {/* Scrollable area: messages OR empty-state */}
       <div className="relative flex flex-1 flex-col">
         <div
@@ -1255,52 +1261,100 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
           {isConversationLoading ? (
             <MessageListSkeleton />
           ) : isEmpty ? (
-            <div className="flex flex-1 flex-col items-center justify-center px-6">
-              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10">
-                <Sparkles className="size-6 text-primary" />
-              </div>
-              <h2 className="mt-5 text-[22px] font-semibold text-foreground">临时会话</h2>
-              <p className="mt-1.5 text-[14px] text-muted-foreground">
-                从这里快速探索、生成和试跑想法。首次发送成功后才会创建正式会话。
-              </p>
+            <div className="flex flex-1 flex-col px-6 pt-16">
+              <div className="mx-auto w-full max-w-[560px]">
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className="mb-8"
+                >
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1.5 text-[12px] text-muted-foreground">
+                    <Sparkles className="size-3.5 text-primary" />
+                    SwarmMind v0.9
+                  </div>
+                  <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
+                    临时会话
+                  </h2>
+                  <p className="mt-2 max-w-[420px] text-[15px] leading-relaxed text-muted-foreground">
+                    快速探索、生成和试跑想法。首次发送成功后才会创建正式会话。
+                  </p>
+                </motion.div>
 
-              <div className="mt-4 rounded-full border border-border bg-card px-4 py-2 text-[12px] text-muted-foreground">
-                当前模式 <span className="font-medium text-foreground">{currentModeOption.label}</span>
-                <span className="mx-2 text-border">/</span>
-                {currentModeOption.description}
-              </div>
-
-              <div className="mt-8 w-full max-w-[560px]">
-                <p className="mb-3 text-[13px] font-medium text-muted-foreground">快速开始</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {QUICK_PROMPTS.map((prompt) => (
-                    <button
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.15, duration: 0.2 }}
+                  className="mb-3 flex items-center gap-2"
+                >
+                  <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">快速开始</p>
+                  <span className="h-px flex-1 bg-border/50" />
+                </motion.div>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {[
+                    { icon: Rocket, prompt: QUICK_PROMPTS[0] },
+                    { icon: Lightbulb, prompt: QUICK_PROMPTS[1] },
+                    { icon: Brain, prompt: QUICK_PROMPTS[2] },
+                    { icon: Sparkles, prompt: QUICK_PROMPTS[3] },
+                  ].map(({ icon: Icon, prompt }, i) => (
+                    <motion.button
                       key={prompt}
-                      onClick={() => setInput(prompt)}
-                      className="rounded-lg border border-border bg-card px-4 py-3 text-left text-[13px] text-foreground transition-colors hover:bg-accent"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 + i * 0.06, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                      onClick={() => {
+                        setInput(prompt);
+                        void handleSubmit(prompt);
+                      }}
+                      className="group flex items-start gap-3 rounded-xl border border-border/70 bg-card/60 p-4 text-left transition-all hover:border-border hover:bg-card hover:shadow-[0_4px_16px_-8px_rgba(0,0,0,0.08)]"
                     >
-                      {prompt}
-                    </button>
+                      <span className={cn(
+                        "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        i === 0 ? "bg-[#dcebff] text-[#184a88]" :
+                        i === 1 ? "bg-[#fff0bd] text-[#8a5a00]" :
+                        i === 2 ? "bg-[#eee6ff] text-[#5f38a6]" :
+                        "bg-[#dff5eb] text-[#0d6b4b]",
+                      )}>
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="text-[13px] leading-snug text-muted-foreground group-hover:text-foreground">
+                        {prompt}
+                      </span>
+                    </motion.button>
                   ))}
                 </div>
               </div>
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 py-6">
+            <AnimatePresence initial={false}>
             {messages.map((message) => (
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              >
               <MessageBubble
                 key={message.id}
                 message={message}
                 isMessageStreaming={message.isStreaming || message.isReasoningStreaming}
               />
+              </motion.div>
             ))}
-              {isLoading && messages.every((m) => m.role !== "assistant") && (
-                <div className="flex justify-start">
+            </AnimatePresence>
+              {isLoading && !messages.some((m) => m.content.trim().length > 0 && m.role === "assistant") && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex justify-start"
+                >
                   <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 shadow-sm">
                     <StreamingDots />
                     <span className="text-[13px] text-muted-foreground">正在生成回复</span>
                   </div>
-                </div>
+                </motion.div>
               )}
             </div>
           )}
@@ -1313,7 +1367,7 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2"
+              className="pointer-events-none absolute bottom-[140px] left-1/2 z-10 -translate-x-1/2"
             >
               <Button
                 type="button"
@@ -1330,70 +1384,76 @@ export function V0Chat({ conversationId, draftResetToken, onConversationCreated,
         </AnimatePresence>
       </div>
 
-      {/* Pinned bottom: status bar + composer */}
+      {/* Pinned bottom: status + composer as unified container */}
       <div className="mx-auto w-full max-w-[760px] px-6 pb-5">
-        {(runtime.phase !== "idle" || error) && (
-          <div className="mb-3 rounded-lg border border-border bg-secondary/50 px-4 py-2.5" aria-live="polite">
-            <div className="flex items-center justify-between">
-              <p className="text-[13px] text-muted-foreground">{error || runtime.label}</p>
-              <Badge variant="outline" className={cn("text-[11px]", statusTone(runtime.phase))}>
-                {statusLabel(runtime.phase)}
-              </Badge>
-            </div>
+        <div className="rounded-2xl border border-border bg-card shadow-[0_4px_24px_-12px_rgba(0,0,0,0.08)] transition-[border-color,box-shadow] focus-within:border-[#a8c8ff] focus-within:shadow-[0_4px_24px_-12px_rgba(100,160,255,0.18)] focus-within:ring-[3px] focus-within:ring-[#a8c8ff]/30">
+          {/* Mode indicator accent bar */}
+          <div className="overflow-hidden rounded-t-2xl">
+            <div className={cn("h-[2px] bg-gradient-to-r from-transparent via-60% to-transparent transition-all duration-500", currentModeOption.id === "flash" ? "via-[#a8c8ff]" : currentModeOption.id === "thinking" ? "via-[#c8a8ff]" : currentModeOption.id === "pro" ? "via-[#8ad4a8]" : "via-[#ffcf5a]")} />
           </div>
-        )}
-
-        <div className="rounded-xl border border-border bg-card shadow-sm">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void handleSubmit();
-              }
-            }}
-            placeholder={isModelsLoading ? "正在加载模型..." : selectedModel ? "输入问题或任务..." : "当前没有可用模型，暂时无法开始会话"}
-            className="min-h-[100px] resize-none border-none bg-transparent px-5 py-4 text-[15px] focus-visible:ring-0"
-            disabled={isComposerDisabled}
-          />
-          <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
-            <div className="flex items-center gap-1">
-              <ModePicker selected={selectedMode} onSelect={setSelectedMode} />
-              <Button variant="ghost" size="icon-xs" disabled className="text-muted-foreground" title="上传附件">
-                <Paperclip className="size-4" />
-              </Button>
-              {lastAssistantMessage && (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="text-muted-foreground"
-                  onClick={() => navigator.clipboard.writeText(lastAssistantMessage.content)}
-                  title="复制回复"
-                >
-                  <Copy className="size-4" />
-                </Button>
-              )}
+          {(runtime.phase !== "idle" || error) && (
+            <div className="border-b border-border/70 bg-secondary/50 px-5 py-2.5" aria-live="polite">
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] text-muted-foreground">{error || runtime.label}</p>
+                <Badge variant="outline" className={cn("text-[11px]", statusTone(runtime.phase))}>
+                  {statusLabel(runtime.phase)}
+                </Badge>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <ModelPicker
-                models={modelOptions}
-                selected={selectedModel}
-                onSelect={setSelectedModel}
-                isLoading={isModelsLoading}
-                loadError={modelLoadError}
-                onRetry={() => {
-                  void fetchModels();
-                }}
-              />
-              <Button
-                onClick={() => void handleSubmit()}
-                disabled={!input.trim() || isComposerDisabled}
-                size="icon-sm"
-                className="rounded-lg"
-              >
-                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-              </Button>
+          )}
+
+          <div>
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSubmit();
+                }
+              }}
+              placeholder={isModelsLoading ? "正在加载模型..." : selectedModel ? "输入问题或任务..." : "当前没有可用模型，暂时无法开始会话"}
+              className="min-h-[100px] resize-none border-none bg-transparent px-5 py-4 text-[15px] focus-visible:ring-0"
+              disabled={isComposerDisabled}
+            />
+            <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
+              <div className="flex items-center gap-1">
+                <ModePicker selected={selectedMode} onSelect={setSelectedMode} />
+                <Button variant="ghost" size="icon-xs" disabled className="text-muted-foreground" title="上传附件">
+                  <Paperclip className="size-4" />
+                </Button>
+                {lastAssistantMessage && (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-muted-foreground"
+                    onClick={() => navigator.clipboard.writeText(lastAssistantMessage.content)}
+                    title="复制回复"
+                  >
+                    <Copy className="size-4" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ModelPicker
+                  models={modelOptions}
+                  selected={selectedModel}
+                  onSelect={setSelectedModel}
+                  isLoading={isModelsLoading}
+                  loadError={modelLoadError}
+                  onRetry={() => {
+                    void fetchModels();
+                  }}
+                />
+                <Button
+                  onClick={() => void handleSubmit()}
+                  disabled={!input.trim() || isComposerDisabled}
+                  size="icon-sm"
+                  className="rounded-lg"
+                >
+                  {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
