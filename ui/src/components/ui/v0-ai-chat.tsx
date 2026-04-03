@@ -331,12 +331,13 @@ function ModePicker({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
+        aria-label={`当前执行模式：${current.label}`}
         className={cn(
-          "group flex h-8 items-center gap-1.5 rounded-full border bg-gradient-to-r px-2.5 text-left shadow-[0_12px_24px_-22px_rgba(56,42,28,0.28)] transition-all hover:border-border hover:shadow-[0_14px_24px_-22px_rgba(56,42,28,0.24)]",
+          "group flex min-h-11 items-center gap-2 rounded-full border bg-gradient-to-r px-3 text-left shadow-[0_12px_24px_-22px_rgba(56,42,28,0.28)] transition-all hover:border-border hover:shadow-[0_14px_24px_-22px_rgba(56,42,28,0.24)] focus-visible:border-[#cabba8] focus-visible:ring-4 focus-visible:ring-[#ebe0d2]/80",
           current.accentClassName,
         )}
       >
-        <span className="flex size-5 items-center justify-center rounded-full bg-white/80 shadow-sm">
+        <span className="flex size-6 items-center justify-center rounded-full bg-white/85 shadow-sm">
           <CurrentIcon className="size-3" />
         </span>
         <span className="min-w-0">
@@ -373,7 +374,7 @@ function ModePicker({
             >
               <div className="mb-1.5 px-1">
                 <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                  Mode
+                  执行模式
                 </p>
                 <p className="text-[12px] text-foreground">
                   选择这轮临时会话的执行方式
@@ -478,7 +479,7 @@ function ModelPicker({
         }}
         disabled={isDisabled}
         title={loadError ?? undefined}
-        className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent bg-transparent px-3 text-[12px] tracking-[0.04em] text-muted-foreground transition-colors hover:border-border/70 hover:bg-background/70 hover:text-foreground focus-visible:border-[#cabba8] focus-visible:ring-4 focus-visible:ring-[#ebe0d2]/80"
       >
         <Sparkles className="size-3.5" />
         <span className="max-w-[140px] truncate">{currentLabel}</span>
@@ -501,7 +502,7 @@ function ModelPicker({
                 damping: 30,
                 mass: 0.8,
               }}
-              className="absolute bottom-full left-0 z-50 mb-2 w-[180px] overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-md"
+              className="absolute bottom-full left-0 z-50 mb-2 w-[220px] overflow-hidden rounded-[18px] border border-border/80 bg-[linear-gradient(180deg,rgba(252,249,244,0.98),rgba(247,242,234,0.94))] p-1.5 shadow-[0_20px_44px_-32px_rgba(56,42,28,0.34)] backdrop-blur-md"
             >
               {models.map((model) => (
                 <button
@@ -512,10 +513,10 @@ function ModelPicker({
                     setOpen(false);
                   }}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition-colors",
+                    "flex min-h-11 w-full items-center gap-2 rounded-[14px] px-3 py-2 text-[13px] transition-colors",
                     model.name === selected
-                      ? "bg-accent text-foreground font-medium"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                      ? "bg-secondary/90 text-foreground font-medium"
+                      : "text-muted-foreground hover:bg-secondary/75 hover:text-foreground",
                   )}
                 >
                   <Sparkles className="size-3.5 shrink-0" />
@@ -582,7 +583,7 @@ function MessageBubble({
         {message.content.trim().length > 0 ? (
           <div
             className={cn(
-              "absolute opacity-0 transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+              "absolute opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
               isUser ? "-right-1 -top-1" : "right-2 top-0",
             )}
           >
@@ -593,7 +594,7 @@ function MessageBubble({
               onClick={() => {
                 void handleCopy();
               }}
-              className="h-6 w-6 rounded-full border border-border/70 bg-white/92 text-muted-foreground shadow-sm backdrop-blur hover:bg-white hover:text-foreground"
+              className="h-8 w-8 rounded-full border border-border/70 bg-white/92 text-muted-foreground shadow-sm backdrop-blur hover:bg-white hover:text-foreground md:h-7 md:w-7"
               title={copied ? "已复制" : "复制消息"}
             >
               {copied ? (
@@ -1554,17 +1555,18 @@ export function V0Chat({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="pointer-events-none absolute bottom-[140px] left-1/2 z-10 -translate-x-1/2"
+              className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-6"
             >
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={() => scrollToLatest("smooth")}
-                className="pointer-events-auto rounded-full border-border bg-background/92 shadow-[0_12px_30px_-20px_rgba(56,42,28,0.34)] backdrop-blur-md"
+                aria-label="回到最新"
+                title="回到最新"
+                className="pointer-events-auto size-10 rounded-full border-border/80 bg-background/95 shadow-[0_16px_32px_-18px_rgba(56,42,28,0.34)] backdrop-blur-md hover:bg-background"
               >
                 <ArrowDown className="size-3.5" />
-                回到最新
               </Button>
             </motion.div>
           ) : null}
@@ -1574,7 +1576,7 @@ export function V0Chat({
       {/* Pinned bottom: status + composer as unified container */}
       <div className="sticky bottom-0 z-20 border-t border-border/60 bg-background/92 shadow-[0_-16px_38px_-32px_rgba(56,42,28,0.26)] backdrop-blur-md supports-[backdrop-filter]:bg-background/78">
         <div className="mx-auto w-full max-w-[760px] px-6 pb-5 pt-3">
-          <div className="rounded-[24px] border border-border/80 bg-[linear-gradient(180deg,rgba(252,249,244,0.94),rgba(247,242,234,0.92))] shadow-[0_18px_40px_-34px_rgba(56,42,28,0.4)] backdrop-blur-md transition-[border-color,box-shadow] focus-within:border-[#b6c5d1] focus-within:shadow-[0_22px_44px_-34px_rgba(88,102,118,0.34)] focus-within:ring-[3px] focus-within:ring-[#d5dde4]/70">
+          <div className="rounded-[24px] border border-border/80 bg-[linear-gradient(180deg,rgba(252,249,244,0.94),rgba(247,242,234,0.92))] shadow-[0_18px_40px_-34px_rgba(56,42,28,0.4)] backdrop-blur-md transition-[border-color,box-shadow] focus-within:border-[#cabba8] focus-within:shadow-[0_24px_46px_-34px_rgba(88,67,45,0.34)] focus-within:ring-[3px] focus-within:ring-[#ebe0d2]/90">
             {/* Mode indicator accent bar */}
             <div className="overflow-hidden rounded-t-[24px]">
               <div
@@ -1595,7 +1597,7 @@ export function V0Chat({
                 className="border-b border-border/70 bg-secondary/65 px-5 py-2.5"
                 aria-live="polite"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-[13px] text-muted-foreground">
                     {error || runtime.label}
                   </p>
@@ -1629,17 +1631,17 @@ export function V0Chat({
                 className="min-h-[104px] resize-none border-none bg-transparent px-5 py-4 text-[15px] leading-[24px] tracking-[-0.003em] focus-visible:ring-0"
                 disabled={isComposerDisabled}
               />
-              <div className="flex items-center justify-between border-t border-border/70 px-4 py-2.5">
-                <div className="flex items-center gap-1">
+              <div className="flex flex-col gap-2 border-t border-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                   <ModePicker
                     selected={selectedMode}
                     onSelect={setSelectedMode}
                   />
                   <Button
                     variant="ghost"
-                    size="icon-xs"
+                    size="icon-sm"
                     disabled
-                    className="text-muted-foreground"
+                    className="size-11 rounded-xl text-muted-foreground hover:bg-background/70"
                     title="上传附件"
                   >
                     <Paperclip className="size-4" />
@@ -1647,8 +1649,8 @@ export function V0Chat({
                   {lastAssistantMessage && (
                     <Button
                       variant="ghost"
-                      size="icon-xs"
-                      className="text-muted-foreground"
+                      size="icon-sm"
+                      className="size-11 rounded-xl text-muted-foreground hover:bg-background/70"
                       onClick={() =>
                         navigator.clipboard.writeText(
                           lastAssistantMessage.content,
@@ -1660,7 +1662,7 @@ export function V0Chat({
                     </Button>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
                   <ModelPicker
                     models={modelOptions}
                     selected={selectedModel}
@@ -1675,7 +1677,7 @@ export function V0Chat({
                     onClick={() => void handleSubmit()}
                     disabled={!input.trim() || isComposerDisabled}
                     size="icon-sm"
-                    className="rounded-lg"
+                    className="size-11 rounded-xl shadow-[0_14px_24px_-18px_rgba(73,56,41,0.5)]"
                   >
                     {isLoading ? (
                       <Loader2 className="size-4 animate-spin" />
