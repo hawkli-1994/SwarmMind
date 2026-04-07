@@ -565,7 +565,7 @@ function MessageBubble({
         className={cn(
           "relative max-w-[90%]",
           isUser
-            ? "rounded-[20px] border border-[#d8d1c8] bg-[#f1ece5] px-[18px] py-[13px] text-[#2f2924]"
+            ? "rounded-[20px] border user-bubble px-[18px] py-[13px] text-foreground"
             : "px-1 py-1 md:px-2",
         )}
       >
