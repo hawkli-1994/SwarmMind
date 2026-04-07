@@ -1,4 +1,4 @@
-.PHONY: help install dev frontend backend restart stop status logs clean build build-ui typecheck test
+.PHONY: help install dev frontend backend restart stop status logs clean build build-ui typecheck test lint lint-fix format format-check audit
 
 # Defaults
 BACKEND_DIR := .
@@ -27,6 +27,28 @@ typecheck: ## Run TypeScript type check (frontend)
 # ---- Test ----
 test: ## Run Python backend tests
 	uv run python -m pytest tests/ -v
+
+# ---- Lint & Format ----
+lint: ## Run all linters (ruff, black check)
+	@echo "Running Ruff linter..."
+	uv run ruff check swarmmind/ tests/
+	@echo "Running Black format check..."
+	uv run black --check swarmmind/ tests/
+
+lint-fix: ## Auto-fix linting issues with Ruff
+	uv run ruff check --fix swarmmind/ tests/
+
+format: ## Format code with Black
+	uv run black swarmmind/ tests/
+
+format-check: ## Check code formatting without making changes
+	uv run black --check --diff swarmmind/ tests/
+
+audit: ## Run security audit (bandit + safety)
+	@echo "Running Bandit security scan..."
+	uv run bandit -r swarmmind/ -f json -o bandit-report.json || true
+	@echo "Running Safety dependency check..."
+	uv run safety check
 
 # ---- Dev ----
 dev: ## Run both backend and frontend via PM2 (background)

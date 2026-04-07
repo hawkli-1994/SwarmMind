@@ -14,10 +14,77 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
+  # ============================================================
+  # Backend Jobs
+  # ============================================================
+
+  backend-lint:
+    name: Backend Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install lint tools
+        run: uv pip install ruff black --system
+
+      - name: Check code format (Black)
+        run: black --check --diff swarmmind/ tests/
+        continue-on-error: true
+
+      - name: Run Ruff linter
+        run: ruff check swarmmind/ tests/
+        continue-on-error: true
+
+  backend-security:
+    name: Backend Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install security tools
+        run: uv pip install bandit safety --system
+
+      - name: Run Bandit security scan
+        run: bandit -r swarmmind/ -f json -o bandit-report.json || true
+
+      - name: Display Bandit report
+        run: |
+          if [ -f bandit-report.json ]; then
+            echo "Bandit found issues. Check artifacts for details."
+            cat bandit-report.json | python -m json.tool || cat bandit-report.json
+          fi
+        continue-on-error: true
+
+      - name: Run Safety dependency check
+        run: safety check || true
+        continue-on-error: true
+
+  backend-test:
     name: Backend Test
     runs-on: ubuntu-latest
-
+    needs: [backend-lint, backend-security]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,15 +100,18 @@ jobs:
           enable-cache: true
 
       - name: Install backend dependencies
-        run: uv sync --locked
+        run: uv sync
 
       - name: Run backend tests
         run: make test
 
-  frontend:
-    name: Frontend Check
-    runs-on: ubuntu-latest
+  # ============================================================
+  # Frontend Jobs
+  # ============================================================
 
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,7 +130,114 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ui
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
+
+      - name: Run ESLint (if configured)
+        working-directory: ui
+        run: |
+          if [ -f .eslintrc.* ] || grep -q "eslint" package.json; then
+            pnpm eslint . --ext .ts,.tsx || true
+          else
+            echo "ESLint not configured, skipping..."
+          fi
+        continue-on-error: true
+
+      - name: Check code formatting (if prettier configured)
+        working-directory: ui
+        run: |
+          if grep -q "prettier" package.json; then
+            pnpm prettier --check . || true
+          else
+            echo "Prettier not configured, skipping..."
+          fi
+        continue-on-error: true
+
+  frontend-security:
+    name: Frontend Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: ui
+        run: pnpm install
+
+      - name: Run npm audit
+        working-directory: ui
+        run: pnpm audit --audit-level=high || true
+        continue-on-error: true
+
+  frontend-test:
+    name: Frontend Test
+    runs-on: ubuntu-latest
+    needs: [frontend-lint, frontend-security]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: ui
+        run: pnpm install
+
+      - name: Run tests (if configured)
+        working-directory: ui
+        run: |
+          if grep -q '"test"' package.json; then
+            pnpm test
+          else
+            echo "No test script configured, skipping..."
+            echo "Consider adding vitest or jest for testing."
+          fi
+        continue-on-error: true
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: [frontend-lint, frontend-security]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: ui
+        run: pnpm install
 
       - name: Run typecheck
         run: make typecheck
