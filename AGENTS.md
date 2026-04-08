@@ -95,6 +95,38 @@ SwarmMind 文档按性质分为两类，阅读和使用时请区分：
 - **Storage**: SQLite (Phase 1)
 - **Python env**: uv
 
+## Workspace Layout
+
+本地开发工作区结构（仅供参考，不作为版本控制的一部分）：
+
+```
+SwarmMindProject/              ← 本地工作区根目录（无git管理）
+├── SwarmMind/                 ← 主项目（所有开发、测试、提交都在这里）
+│   ├── swarmmind/             # Python后端代码
+│   ├── ui/                    # React前端代码
+│   ├── docs/                  # 架构文档、UI线框
+│   ├── DESIGN.md              # 设计系统规范
+│   ├── AGENTS.md              # 本文件：工程状态
+│   ├── pyproject.toml         # 依赖定义
+│   └── .git/                  # ✅ 唯一git仓库
+│
+└── deer-flow/                 ← 上游依赖源码副本（仅用于学习参考）
+    └── backend/               # 本地源码，无物理依赖关系
+```
+
+### 说明
+
+- **SwarmMind** 是唯一的版本控制仓库，所有代码提交指向 `https://github.com/rongxinzy/SwarmMind`
+- **deer-flow** 是上游依赖的本地副本，仅用于调研和学习，不直接参与构建
+- SwarmMind 通过 `pyproject.toml` 的 Git 依赖引用 deerflow-harness，而非本地路径
+
+### 为什么不维护父项目git
+
+1. SwarmMind 和 deer-flow 已经各自独立管理版本
+2. 父项目没有实质代码，提交只是子模块引用更新
+3. 增加维护复杂度（每次子模块更新需同步提交父项目）
+4. 版本配套关系可通过 SwarmMind 的依赖声明体现
+
 ## Implementation Structure
 
 ```
