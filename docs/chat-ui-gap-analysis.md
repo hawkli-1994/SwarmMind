@@ -1,5 +1,7 @@
 # SwarmMind vs DeerFlow Chat UI 深度对比分析
 
+> **文档类型**: [B] 工程状态文档 — 一次性调研分析  
+> **状态**: 已归档，执行完成后可删除  
 > 分析时间：2026-04-07  
 > 分析范围：SwarmMind `v0-ai-chat.tsx` vs DeerFlow `frontend/src/components/`
 
